@@ -58,7 +58,7 @@ for fileName in next(os.walk(DATA_DIR))[2]:
 
 # Output for eLogEntry
 print('Run Number                   |  THRe  | Config                          | End   | Nevents | Size/MB | Comments')
-for run in runList:
+for run in sorted(runList,key=(lambda x:x['no'])):
   print('%s| %3d e- | %s | %s |   300k  | %7.0f | %s' % (run['no'], int(run['thr']), run['config'], run['end'], run['size']/1e6, run['comment']))
 
 # END

@@ -1,9 +1,9 @@
 #!/bin/env python3
 
-import csv
+import os, csv
 from scipy import interpolate
 import numpy as np
-import os
+import matplotlib.pyplot as plt
 
 THR_DATA = {}
 def InitScanData(csvFile):
@@ -29,7 +29,7 @@ def InitScanData(csvFile):
 
 def ConfigThreshold(confPath):
   result = {}
-  # VCASN settings in config. file
+  # VCASN settings in config. file (line number -1)
   THR_DATA['DUT0']['confVCASN'] = 19
   if(THR_DATA.get('DUT1')):
     THR_DATA['DUT1']['confVCASN'] = 33
@@ -55,23 +55,58 @@ def ConfigThreshold(confPath):
 
 def ThresholdForConfig(thrList):
   for chip in THR_DATA.keys():
-    print(chip)
     for ithr in THR_DATA[chip].keys():
-      print(ithr, end='\t')
       THR_DATA[chip][ithr]['vcasn_config'] = []
-      x = list(range(20,100,1))
+      THR_DATA[chip][ithr]['thr_config'] = thrList
+      # Extend range for roots finding
+      x = list(range(20,80,1))
       THR_DATA[chip][ithr]['vcasn_fit'] = x
       y = interpolate.splev(x, THR_DATA[chip][ithr]['fit'], der=0)
       THR_DATA[chip][ithr]['thr_fit'] = y
       for thr in thrList:
+        # Find x with given y by roots method
         yToFind = np.array(y) - thr
         try:
           newSpl = interpolate.CubicSpline(x,yToFind)
-          THR_DATA[chip][ithr]['vcasn_config'].append(newSpl.roots()[0])
-          print('%.0f' % newSpl.roots(), end=',')
+          xFound = newSpl.roots()[0]
         except:
-          print(0,end=',')
-      print()
+          xFound = 0
+        finally:
+          THR_DATA[chip][ithr]['vcasn_config'].append(xFound)
+
+def PrintConfig(ithrList, debug=False):
+  headerFlag = True
+  for ithr in ithrList:
+    for chip in sorted(THR_DATA.keys()):
+      thrData = THR_DATA[chip][ithr]
+      if(headerFlag):
+        print('Threshold/10e-       ', end='')
+        for i in range(len(thrData['vcasn_config'])):
+          if(debug):
+            print('%3.0f' % thrData['thr_config'][i],end=',')
+          else:
+            print('%2.0f' % thrData['thr_config'][i],end=',')
+        print('\b ')
+        headerFlag = False
+      print('VCASN_' + chip + '_ITHR' + repr(ithr) + ' = [',end='')
+      for i in range(len(thrData['vcasn_config'])):
+        if(debug):
+          print('%3.1f' % thrData['vcasn_config'][i],end=',')
+        else:
+          print('%2.0f' % thrData['vcasn_config'][i],end=',')
+      print('\b]')
+
+def DrawThreshold(chipID, ithr):
+  thrData = THR_DATA[chipID][ithr]
+  pScan, = plt.plot(thrData['vcasn'], thrData['threshold'],'ro',ms=5, label='Scan data')
+  pConf, = plt.plot(thrData['vcasn_config'], thrData['thr_config'],'gs',ms=3, label='Value for conf.')
+  pFit,  = plt.plot(thrData['vcasn_fit'], thrData['thr_fit'],label='Fit (Cubic-spline)')
+  plt.xlabel('VCASN / DAC')
+  plt.ylabel('Threshold / 10e-')
+  plt.xlim([40,80])
+  plt.ylim([0,50])
+  plt.legend(handles=[pScan, pConf, pFit])
+  return plt
 
 
 if __name__ == "__main__":
