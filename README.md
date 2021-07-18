@@ -4,28 +4,39 @@
 
 __config_thr.py__ - Inter/Extrapolate scan data for VCASN <-> Threshold/e-
 * Method: Cubic spline from Scipy (try pyROOT?)
-* Threshold/Float -> DAC/Integer, __floor__ value as ".0f"
+* Threshold/Float -> DAC/Integer, __FLOOR__ value as ".0f"
+* Data access: __config_thr.THR_DATA[chipID][ithr]__ (chipID=DUT0/1..)
+
+|Keywords         | Description  |
+|-------------| -----|
+|vcasn, threshold|Scan data from CSV file|
+|vcasn_fit, thr_fit|Fit data by Cubic-spline|
+|vcasn_config, thr_config|Generated data for conf file|
 
 Case: Generate VCASN for configuration file
 ```python
 import config_thr
 
 THR_FIXED = list(range(5,31)) + [35,40]
-config_thr.InitScanData('uITS3g2_0VBB.csv')
+config_thr.InitScanData('uITS3g2_0V_scan.csv')
 config_thr.ThresholdForConfig(THR_FIXED)
 
 # Draw scan data, fit and selected thr. value
-plt = config_thr.DrawThreshold('DUT0', [40,80])
+  # VCASN range: [40, 80] for 0V, [90, 140] for 3V
 plt = config_thr.DrawAll('THRScan - uITS3g2_0VBB', [40,80])
 
 # Output for conf. file
-config_thr.PrintConfig([50, 60])
+config_thr.PrintConfig(ithrList=[50, 60])
 ```
 
 Case: Check configuration file (now only for uITS3g1)
-  TODO: Input line number of DUT VCASN in conf. file
+
+* Compare the value with preset threshold. If some .conf file are completely SAME, try longer steps in high THR region.
+
+TODO - Read .conf file to JSON/Dict
 ```shell
-./config_thr.py --csv [scan_data] --config [conf_dir]
+
+./config_thr.py --csv uITS3g2_0V_scan.csv --config $RUN_DIR/uITS3g2_conf_0V_ithr_50/
 ```
 
 
