@@ -54,13 +54,16 @@ def ConfigThreshold(confPath):
       result['thr'].append(thr)
   return result
 
-def ThresholdForConfig(thrList):
+def ThresholdForConfig(thrList,extraRange = 10):
   for chip in THR_DATA.keys():
     for ithr in THR_DATA[chip].keys():
-      THR_DATA[chip][ithr]['vcasn_config'] = []
-      THR_DATA[chip][ithr]['thr_config'] = thrList
+      thrData =  THR_DATA[chip][ithr]
+      thrData['vcasn_config'] = []
+      thrData['thr_config'] = thrList
       # Extend range for roots finding
-      x = list(range(20,80,1))
+      xmin = min(thrData['vcasn']) - extraRange
+      xmax = max(thrData['vcasn']) + extraRange
+      x = list(range(xmin,xmax,1))
       THR_DATA[chip][ithr]['vcasn_fit'] = x
       y = interpolate.splev(x, THR_DATA[chip][ithr]['fit'], der=0)
       THR_DATA[chip][ithr]['thr_fit'] = y
@@ -69,7 +72,10 @@ def ThresholdForConfig(thrList):
         yToFind = np.array(y) - thr
         try:
           newSpl = interpolate.CubicSpline(x,yToFind)
-          xFound = newSpl.roots()[0]
+          for val in newSpl.roots():
+            if(val > xmin and val < xmax):
+              xFound = val
+              break
         except:
           xFound = 0
         finally:
@@ -97,7 +103,7 @@ def PrintConfig(ithrList, debug=False):
           print('%2.0f' % thrData['vcasn_config'][i],end=',')
       print('\b]')
 
-def DrawThreshold(chipID):
+def DrawThreshold(chipID, vcasnRange=[40,80]):
   lgdHandles = []
   for ithr in THR_DATA[chipID].keys():
     thrData = THR_DATA[chipID][ithr]
@@ -108,14 +114,15 @@ def DrawThreshold(chipID):
   plt.suptitle(chipID)
   plt.xlabel('VCASN / DAC')
   plt.ylabel('Threshold / 10e-')
-  plt.xlim([40,80])
+  plt.xlim(vcasnRange)
   plt.ylim([0,50])
   plt.legend(handles=lgdHandles)
   plt.show()
   return plt
 
-def DrawAll(title='THRscan.csv'):
+def DrawAll(title='THRscan.csv',vcasnRange=[40,80]):
   # Subplots
+  COLOR_OPTION = {50:'b',60:'r',70:'g'}
   fig = plt.figure()
   fig.suptitle(title)
   nDUT = len(THR_DATA.keys())
@@ -127,16 +134,16 @@ def DrawAll(title='THRscan.csv'):
     iRow = int(i / nCol)
     pad = ax[iRow, iCol]
     lgdHandles = []
-    for ithr in THR_DATA[chipID].keys():
+    for ithr in sorted(THR_DATA[chipID].keys()):
       thrData = THR_DATA[chipID][ithr]
-      pScan, = pad.plot(thrData['vcasn'], thrData['threshold'],'o',ms=5, label=('Scan data (ithr=%d)' % ithr))
-      pConf, = pad.plot(thrData['vcasn_config'], thrData['thr_config'],'s',ms=3, label=('Value for conf. (ithr=%d)' % ithr))
-      pFit,  = pad.plot(thrData['vcasn_fit'], thrData['thr_fit'],label=('Fit Cubic-spline (ithr=%d)' % ithr))
+      pScan, = pad.plot(thrData['vcasn'], thrData['threshold'],COLOR_OPTION[ithr]+'o',ms=5, label=('Scan data (ithr=%d)' % ithr))
+      pConf, = pad.plot(thrData['vcasn_config'], thrData['thr_config'],COLOR_OPTION[ithr]+'s',ms=3, label=('Value for conf. (ithr=%d)' % ithr))
+      pFit,  = pad.plot(thrData['vcasn_fit'], thrData['thr_fit'],COLOR_OPTION[ithr], label=('Fit Cubic-spline (ithr=%d)' % ithr))
       lgdHandles += [pScan, pConf, pFit]
     pad.set_title(chipID)
     pad.set_xlabel('VCASN / DAC')
     pad.set_ylabel('Threshold / 10e-')
-    pad.set_xlim([40,80])
+    pad.set_xlim(vcasnRange)
     pad.set_ylim([0,50])
     pad.legend(handles=lgdHandles, loc='upper right', borderpad=0, labelspacing=0.5, prop={'size':8})
   plt.show()

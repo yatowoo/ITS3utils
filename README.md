@@ -15,8 +15,8 @@ config_thr.InitScanData('uITS3g2_0VBB.csv')
 config_thr.ThresholdForConfig(THR_FIXED)
 
 # Draw scan data, fit and selected thr. value
-plt = config_thr.DrawThreshold('DUT0')
-plt = config_thr.DrawAll('THRScan - uITS3g2_0VBB')
+plt = config_thr.DrawThreshold('DUT0', [40,80])
+plt = config_thr.DrawAll('THRScan - uITS3g2_0VBB', [40,80])
 
 # Output for conf. file
 config_thr.PrintConfig([50, 60])
