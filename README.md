@@ -4,6 +4,7 @@
 
 __config_thr.py__ - Inter/Extrapolate scan data for VCASN <-> Threshold/e-
 * Method: Cubic spline from Scipy (try pyROOT?)
+* Threshold/Float -> DAC/Integer, __floor__ value as ".0f"
 
 Case: Generate VCASN for configuration file
 ```python
@@ -13,8 +14,9 @@ THR_FIXED = list(range(5,31)) + [35,40]
 config_thr.InitScanData('uITS3g2_0VBB.csv')
 config_thr.ThresholdForConfig(THR_FIXED)
 
-# Draw scan data, fit and value for conf.
-config_thr.DrawThreshold('DUT0', 50)
+# Draw scan data, fit and selected thr. value
+plt = config_thr.DrawThreshold('DUT0')
+plt = config_thr.DrawAll('THRScan - uITS3g2_0VBB')
 
 # Output for conf. file
 config_thr.PrintConfig([50, 60])

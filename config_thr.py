@@ -1,6 +1,7 @@
 #!/bin/env python3
 
 import os, csv
+from math import *
 from scipy import interpolate
 import numpy as np
 import matplotlib.pyplot as plt
@@ -96,18 +97,49 @@ def PrintConfig(ithrList, debug=False):
           print('%2.0f' % thrData['vcasn_config'][i],end=',')
       print('\b]')
 
-def DrawThreshold(chipID, ithr):
-  thrData = THR_DATA[chipID][ithr]
-  pScan, = plt.plot(thrData['vcasn'], thrData['threshold'],'ro',ms=5, label='Scan data')
-  pConf, = plt.plot(thrData['vcasn_config'], thrData['thr_config'],'gs',ms=3, label='Value for conf.')
-  pFit,  = plt.plot(thrData['vcasn_fit'], thrData['thr_fit'],label='Fit (Cubic-spline)')
+def DrawThreshold(chipID):
+  lgdHandles = []
+  for ithr in THR_DATA[chipID].keys():
+    thrData = THR_DATA[chipID][ithr]
+    pScan, = plt.plot(thrData['vcasn'], thrData['threshold'],'o',ms=5, label=('Scan data (ithr=%d)' % ithr))
+    pConf, = plt.plot(thrData['vcasn_config'], thrData['thr_config'],'s',ms=3, label=('Value for conf. (ithr=%d)' % ithr))
+    pFit,  = plt.plot(thrData['vcasn_fit'], thrData['thr_fit'],label=('Fit Cubic-spline (ithr=%d)' % ithr))
+    lgdHandles += [pScan, pConf, pFit]
+  plt.suptitle(chipID)
   plt.xlabel('VCASN / DAC')
   plt.ylabel('Threshold / 10e-')
   plt.xlim([40,80])
   plt.ylim([0,50])
-  plt.legend(handles=[pScan, pConf, pFit])
+  plt.legend(handles=lgdHandles)
+  plt.show()
   return plt
 
+def DrawAll(title='THRscan.csv'):
+  # Subplots
+  fig = plt.figure()
+  fig.suptitle(title)
+  nDUT = len(THR_DATA.keys())
+  nRow = floor(sqrt(nDUT))
+  nCol = ceil(float(nDUT) / nRow)
+  ax = fig.subplots(nRow, nCol, sharex='all', sharey='all')
+  for i,chipID in enumerate(THR_DATA.keys()):
+    iCol = int(i % nCol)
+    iRow = int(i / nCol)
+    pad = ax[iRow, iCol]
+    lgdHandles = []
+    for ithr in THR_DATA[chipID].keys():
+      thrData = THR_DATA[chipID][ithr]
+      pScan, = pad.plot(thrData['vcasn'], thrData['threshold'],'o',ms=5, label=('Scan data (ithr=%d)' % ithr))
+      pConf, = pad.plot(thrData['vcasn_config'], thrData['thr_config'],'s',ms=3, label=('Value for conf. (ithr=%d)' % ithr))
+      pFit,  = pad.plot(thrData['vcasn_fit'], thrData['thr_fit'],label=('Fit Cubic-spline (ithr=%d)' % ithr))
+      lgdHandles += [pScan, pConf, pFit]
+    pad.set_title(chipID)
+    pad.set_xlabel('VCASN / DAC')
+    pad.set_ylabel('Threshold / 10e-')
+    pad.set_xlim([40,80])
+    pad.set_ylim([0,50])
+    pad.legend(handles=lgdHandles, loc='upper right', borderpad=0, labelspacing=0.5, prop={'size':8})
+  plt.show()
 
 if __name__ == "__main__":
   import argparse
