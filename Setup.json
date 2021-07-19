@@ -3,8 +3,8 @@
   "title": "uITS3g2_0V",
   "thr_scan": "uITS3g2_0V_scan.csv",
   "ithr_conf": [50, 60],
-  "thr_conf": [5, 10, 15],
-  "Setup": ["DUT0","DUT1", "DUT2", "DUT3", "DUT4", "DUT5", "REF0", "REF1", "REF2", "REF3", "REF4", "REF5"],
+  "thr_conf": [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 35, 40],
+  "setup": ["DUT0","DUT1", "DUT2", "DUT3", "DUT4", "DUT5", "REF0", "REF1", "REF2", "REF3", "REF4", "REF5"],
   "ALPIDE": {
     "fixedbusy": 8000,
     "minspacing": 2400,
@@ -13,7 +13,7 @@
     "ITHR": 50,
     "VCASN": 105,
     "VCASN2": 117,
-    "VCLIP": 60,
+    "VCLIP": 0,
     "IDB": 29,
     "STROBE_LENGTH": 400
   }

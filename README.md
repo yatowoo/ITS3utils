@@ -63,3 +63,23 @@ Output format:
 Run Number                   |  THRe  | Config                          | End   | Nevents | Size/MB | Comments
 run285172379_210716212923.raw|  51 e- | uITS3g1_conf_3V_ithr_70-0.conf  | 21:38 |   300k  |     439 |
 ```
+
+## Configuration file
+__make_conf.py__ - Generate .conf files from Setup (JSON)
+
+Usage: ./make_conf.py --setup,-s [Setup.json]
+
+Output: `{title}_ithr_{ithr}/{title}_ithr_{ithr}-{thr}.conf`
+
+Setup FILE (see example in `Setup.json`.)
+|Keywords in *[general]*|Description|
+|---|---|
+|title|Name of setup, as prefix of .conf|
+|thr_scan|Threshold scan data^ for VCASN<->THR fitting|
+|ithr_conf|ITHR list for .conf|
+|thr_conf|Threshold list for .conf|
+|setup|Chips order in .conf|
+|ALPIDE|Basic settings for all chips^, specific in *[CHIPS]*|
+
+^ Threshold scan data should be the same format as CSV file in this repo.
+^ Notice `VCLIP` for VBB of setup
