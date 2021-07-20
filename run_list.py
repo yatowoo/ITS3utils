@@ -1,7 +1,8 @@
 #!/bin/env python3
 
-import os, time
+import os, time, re, csv, json, subprocess
 import argparse
+from scipy import interpolate
 
 # INPUT
 parser=argparse.ArgumentParser(description='Run list generator',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -10,55 +11,92 @@ parser.add_argument('--data', '-d',default='/media/T71/SPSjuly2021/uITS3g1/Vbb0/
 parser.add_argument('--run', '-r',default='/home/llautner/eudaq2/user/ITS3/misc/', help='Path for configuration files')
 parser.add_argument('--csv',default='/home/llautner/tmp/uITS3g1_0V_scan_round2.csv', help='Threshold scan file')
 parser.add_argument('--nothr', default=False, action='store_true', help='Disable threshold extrapolation')
+parser.add_argument('--setup', default='Setup.json', help='Setup file, contains configuration info.')
+parser.add_argument('--eudaq', default='/home/llautner/eudaq', help='Use $EUDAQ/bin/euCliReader to get event number')
 args=parser.parse_args()
 
 RUN_DIR = args.run
 RUN_START = args.start
 DATA_DIR = args.data
-
-RUN_SIZE = 430000000 # Check smaller run by file SIZE of raw data
+with open(args.setup) as f:
+  SETUP_DB = json.load(f)
 
 # Result from Threshold scan (uITS3g1_0V_scan_round2.csv / uITS3g1_3V_scan_round2.csv)
 import config_thr
 if(not args.nothr):
-  config_thr.InitScanData(args.csv)
+  config_thr.InitScanData(SETUP_DB['general']['thr_scan'])
+
+RUNLIST_FIELDS = ['RunNumber','Size','Config','Date','Time','VBB', 'Nevents']
+# DAC of DUTs - ITHR, VCASN, THRe
+for chip in SETUP_DB['general']['setup']:
+  if(chip.startwith('DUT')):
+    RUNLIST_FIELDS += [f'ITHR_{chip}', f'VCASN_{chip}', f'THRe_{chip}']
+
+fOut = open(f'Runlist_{SETUP_DB["general"]["title"]}.csv','w')
+csvWriter = csv.DictWriter(fOut, fieldnames=RUNLIST_FIELDS,extrasaction='ignore')
+csvWriter.writeheader()
+
+
+def ReadConf(confPath):
+  confData = {}
+  with open(confPath) as f:
+    tmpHeader = ''
+    headerRe = re.compile(r'\[(.*)\].*')
+    varRe = re.compile('(\w+)[ ]+=[ ]+(\w+)')
+    for l in f.readlines():
+      if(headerRe.match(l) is not None):
+        tmpHeader = headerRe.match(l).group(1)
+        confData[tmpHeader] = {}
+      elif(varRe.match(l) is not None):
+        var = varRe.match(l).group(1)
+        val = varRe.match(l).group(2)
+        if(val.isdigit()):
+          val = int(val)
+        confData[tmpHeader][var] = val
+      else: # Empty or commented lines only
+        pass
+  return confData
+def GetFileSize(rawDataPath):
+  return os.path.getsize(rawDataPath)
+def GetNevents(rawDataPath):
+  cmd = [args.eudaq + '/bin/euCliReader',"-i",rawDataPath,"-e", "10000000"]
+  result = subprocess.run(cmd, stdout=subprocess.PIPE)
+  cfg = re.findall(r'\d+',result.stdout.decode('utf-8'))
+  return int(cfg[0])
 
 # Run list
-runList = []
 RUN_START_TIME = os.path.getmtime(DATA_DIR + RUN_START)
 RUN_NOW_TIME = time.time() - 60
 for fileName in next(os.walk(DATA_DIR))[2]:
+  if(not fileName.endswith('.raw')):
+    continue
   filePath = DATA_DIR + '/' + fileName
   fileTime = os.path.getmtime(filePath)
-  if(fileTime >= RUN_START_TIME and fileTime < RUN_NOW_TIME):
-    runInfo ={}
-    runInfo['no'] = fileName
-    with open(filePath, errors='ignore') as f:
-      f.readline()
-      f.readline()
-      configFile = f.readline().split()[2]
-      runInfo['configPath'] = RUN_DIR + configFile
-      runInfo['config'] = os.path.basename(configFile)
-      if(len(runInfo['config']) < 31):
-        runInfo['config'] += ' '
-    if(args.nothr):
-      runInfo['thr'] = 100.
-    else:
-      thrRes = config_thr.ConfigThreshold(runInfo['configPath'])
-      runInfo['thr'] = sum(thrRes['thr']) / len(thrRes['thr'])
-    runInfo['end'] = time.strftime('%H:%M', time.localtime(fileTime))
-    runInfo['size'] = os.path.getsize(filePath)
-    if(runInfo['size'] < RUN_SIZE):
-      runInfo['comment'] = 'Smaller RUN, check raw data'
-    else:
-      runInfo['comment'] = ''
-    runList.append(runInfo)
+  if(fileTime > RUN_NOW_TIME):
+    continue
+  runInfo = {}
+  runInfo['RunNumber'] = fileName
+  runInfo['Size'] = GetFileSize(filePath)
+  runInfo['Nevents'] = GetNevents(filePath)
+  runInfo['Date'] = fileName.split('_')[1][0:5]
+  runInfo['Time'] = fileName.split('_')[1][6:9]
+  runInfo['VBB'] = SETUP_DB['general']['Vbb']
+  with open(filePath, errors='ignore') as f:
+    f.readline()
+    f.readline()
+    configFile = f.readline().split()[2]
+    runInfo['configPath'] = RUN_DIR + configFile
+    runInfo['Config'] = os.path.basename(configFile)
+    runInfo['confData'] = ReadConf(runInfo['configPath'])
+    for chip in SETUP_DB['general']['setup']:
+      if(not chip.startwith('DUT')):
+        continue
+      dutConfig = runInfo['confData'] [SETUP_DB['CHIPS'][chip]['name']]
+      runInfo[f'ITHR_{chip}'] = dutConfig['ITHR']
+      runInfo[f'VCASN_{chip}'] = dutConfig['VCASN']
+      runInfo[f'THRe_{chip}'] = round(10 * float(interpolate.splev(dutConfig['VCASN'], config_thr.THR_DATA[chip][dutConfig['ITHR']]['fit'], der=0)))
+    csvWriter.writerow(runInfo)
 
-# CONFIG
-
-# Output for eLogEntry
-print('Run Number                   |  THRe  | Config                          | End   | Nevents | Size/MB | Comments')
-for run in sorted(runList,key=(lambda x:x['no'])):
-  print('%s| %3d e- | %s | %s |   300k  | %7.0f | %s' % (run['no'], int(run['thr']), run['config'], run['end'], run['size']/1e6, run['comment']))
-
+# Output
+fOut.close()
 # END
