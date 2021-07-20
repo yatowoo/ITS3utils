@@ -13,6 +13,7 @@ parser.add_argument('--csv',default='/home/llautner/tmp/uITS3g1_0V_scan_round2.c
 parser.add_argument('--nothr', default=False, action='store_true', help='Disable threshold extrapolation')
 parser.add_argument('--setup', default='Setup.json', help='Setup file, contains configuration info.')
 parser.add_argument('--eudaq', default='/home/llautner/eudaq', help='Use $EUDAQ/bin/euCliReader to get event number')
+parser.add_argument('--debug','-v',default=False, action='store_true', help='Print debug info.')
 args=parser.parse_args()
 
 RUN_DIR = args.run
@@ -29,7 +30,7 @@ if(not args.nothr):
 RUNLIST_FIELDS = ['RunNumber','Size','Config','Date','Time','VBB', 'Nevents']
 # DAC of DUTs - ITHR, VCASN, THRe
 for chip in SETUP_DB['general']['setup']:
-  if(chip.startwith('DUT')):
+  if(chip.startswith('DUT')):
     RUNLIST_FIELDS += [f'ITHR_{chip}', f'VCASN_{chip}', f'THRe_{chip}']
 
 fOut = open(f'Runlist_{SETUP_DB["general"]["title"]}.csv','w')
@@ -65,7 +66,6 @@ def GetNevents(rawDataPath):
   return int(cfg[0])
 
 # Run list
-RUN_START_TIME = os.path.getmtime(DATA_DIR + RUN_START)
 RUN_NOW_TIME = time.time() - 60
 for fileName in next(os.walk(DATA_DIR))[2]:
   if(not fileName.endswith('.raw')):
@@ -77,26 +77,38 @@ for fileName in next(os.walk(DATA_DIR))[2]:
   runInfo = {}
   runInfo['RunNumber'] = fileName
   runInfo['Size'] = GetFileSize(filePath)
-  runInfo['Nevents'] = GetNevents(filePath)
-  runInfo['Date'] = fileName.split('_')[1][0:5]
-  runInfo['Time'] = fileName.split('_')[1][6:9]
+  if(args.debug):
+      runInfo['Nevents'] = 300000
+  else:
+    runInfo['Nevents'] = GetNevents(filePath)
+  runInfo['Date'] = fileName.split('_')[1][0:6]
+  runInfo['Time'] = fileName.split('_')[1][6:10]
   runInfo['VBB'] = SETUP_DB['general']['Vbb']
   with open(filePath, errors='ignore') as f:
-    f.readline()
-    f.readline()
-    configFile = f.readline().split()[2]
+    if(args.debug):
+      print(f'> Processing {filePath}')
+    for i in range(20):
+      l = f.readline()
+      varMatch = re.match('Name[ ]+=[ ]+(.*)', l)
+      if(varMatch is None):
+        continue
+      else:
+        configFile = varMatch.group(1)
     runInfo['configPath'] = RUN_DIR + configFile
     runInfo['Config'] = os.path.basename(configFile)
     runInfo['confData'] = ReadConf(runInfo['configPath'])
     for chip in SETUP_DB['general']['setup']:
-      if(not chip.startwith('DUT')):
+      if(not chip.startswith('DUT')):
         continue
       dutConfig = runInfo['confData'] [SETUP_DB['CHIPS'][chip]['name']]
       runInfo[f'ITHR_{chip}'] = dutConfig['ITHR']
       runInfo[f'VCASN_{chip}'] = dutConfig['VCASN']
       runInfo[f'THRe_{chip}'] = round(10 * float(interpolate.splev(dutConfig['VCASN'], config_thr.THR_DATA[chip][dutConfig['ITHR']]['fit'], der=0)))
     csvWriter.writerow(runInfo)
-
+    if(args.debug):
+      for k in RUNLIST_FIELDS:
+        print(runInfo[k],end=',')
+      print('\b')
 # Output
 fOut.close()
 # END
