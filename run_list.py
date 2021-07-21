@@ -6,38 +6,38 @@ from scipy import interpolate
 
 # INPUT
 parser=argparse.ArgumentParser(description='Run list generator',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--start', '-s',default='run284150051_210715160244.raw', help='Set start run with raw file name')
 parser.add_argument('--data', '-d',default='/media/T71/SPSjuly2021/uITS3g1/Vbb0/', help='Data directory')
 parser.add_argument('--run', '-r',default='/home/llautner/eudaq2/user/ITS3/misc/', help='Path for configuration files')
-parser.add_argument('--csv',default='/home/llautner/tmp/uITS3g1_0V_scan_round2.csv', help='Threshold scan file')
 parser.add_argument('--nothr', default=False, action='store_true', help='Disable threshold extrapolation')
 parser.add_argument('--setup', default='Setup.json', help='Setup file, contains configuration info.')
-parser.add_argument('--eudaq', default='/home/llautner/eudaq', help='Use $EUDAQ/bin/euCliReader to get event number')
+parser.add_argument('--eudaq', default='/home/llautner/eudaq2/', help='Use $EUDAQ/bin/euCliReader to get event number')
 parser.add_argument('--debug','-v',default=False, action='store_true', help='Print debug info.')
 args=parser.parse_args()
 
 RUN_DIR = args.run
-RUN_START = args.start
 DATA_DIR = args.data
 with open(args.setup) as f:
   SETUP_DB = json.load(f)
 
-# Result from Threshold scan (uITS3g1_0V_scan_round2.csv / uITS3g1_3V_scan_round2.csv)
-import config_thr
-if(not args.nothr):
+# Result from Threshold scan
+THR_FLAG = not args.nothr
+if(THR_FLAG):
+  import config_thr
   config_thr.InitScanData(SETUP_DB['general']['thr_scan'])
 
-RUNLIST_FIELDS = ['RunNumber','Size','Config','Date','Time','VBB', 'Nevents']
+RUNLIST_CSV_FIELDS = ['RunNumber','Size','Config','Date','Time','VBB', 'Nevents']
 # DAC of DUTs - ITHR, VCASN, THRe
 for chip in SETUP_DB['general']['setup']:
   if(chip.startswith('DUT')):
-    RUNLIST_FIELDS += [f'ITHR_{chip}', f'VCASN_{chip}', f'THRe_{chip}']
+    RUNLIST_CSV_FIELDS += [f'ITHR_{chip}', f'VCASN_{chip}']
+    if(THR_FLAG):
+      RUNLIST_CSV_FIELDS.append(f'THRe_{chip}')
 
 fOut = open(f'Runlist_{SETUP_DB["general"]["title"]}.csv','w')
-csvWriter = csv.DictWriter(fOut, fieldnames=RUNLIST_FIELDS,extrasaction='ignore')
+csvWriter = csv.DictWriter(fOut, fieldnames=RUNLIST_CSV_FIELDS,extrasaction='ignore')
 csvWriter.writeheader()
 
-
+# Parse .conf file
 def ReadConf(confPath):
   confData = {}
   with open(confPath) as f:
@@ -60,6 +60,7 @@ def ReadConf(confPath):
 def GetFileSize(rawDataPath):
   return os.path.getsize(rawDataPath)
 def GetNevents(rawDataPath):
+  # From Bogdan
   cmd = [args.eudaq + '/bin/euCliReader',"-i",rawDataPath,"-e", "10000000"]
   result = subprocess.run(cmd, stdout=subprocess.PIPE)
   cfg = re.findall(r'\d+',result.stdout.decode('utf-8'))
@@ -81,8 +82,9 @@ for fileName in next(os.walk(DATA_DIR))[2]:
       runInfo['Nevents'] = 300000
   else:
     runInfo['Nevents'] = GetNevents(filePath)
-  runInfo['Date'] = fileName.split('_')[1][0:6]
-  runInfo['Time'] = fileName.split('_')[1][6:10]
+  timeStamp = fileName.split('_')[1]
+  runInfo['Date'] = timeStamp[0:2] + '.' + timeStamp[2:4] + '.' + timeStamp[4:6]
+  runInfo['Time'] = timeStamp[6:8] + ':' + timeStamp[8:10]
   runInfo['VBB'] = SETUP_DB['general']['Vbb']
   with open(filePath, errors='ignore') as f:
     if(args.debug):
@@ -103,12 +105,13 @@ for fileName in next(os.walk(DATA_DIR))[2]:
       dutConfig = runInfo['confData'] [SETUP_DB['CHIPS'][chip]['name']]
       runInfo[f'ITHR_{chip}'] = dutConfig['ITHR']
       runInfo[f'VCASN_{chip}'] = dutConfig['VCASN']
-      runInfo[f'THRe_{chip}'] = round(10 * float(interpolate.splev(dutConfig['VCASN'], config_thr.THR_DATA[chip][dutConfig['ITHR']]['fit'], der=0)))
+      if(THR_FLAG):
+        fit = config_thr.THR_DATA[chip][dutConfig['ITHR']]['fit']
+        fitThr = interpolate.splev(dutConfig['VCASN'], fit, der=0)
+        runInfo[f'THRe_{chip}'] = round(10 * float(fitThr))
     csvWriter.writerow(runInfo)
     if(args.debug):
-      for k in RUNLIST_FIELDS:
-        print(runInfo[k],end=',')
-      print('\b')
+      print(','.join([str(runInfo[k]) for k in RUNLIST_CSV_FIELDS]))
 # Output
 fOut.close()
 # END
