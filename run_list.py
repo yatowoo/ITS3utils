@@ -6,19 +6,24 @@ from scipy import interpolate
 
 # INPUT
 parser=argparse.ArgumentParser(description='Run list generator',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--data', '-d',default='/media/T71/SPSjuly2021/uITS3g1/Vbb0/', help='Data directory')
-parser.add_argument('--run', '-r',default='/home/llautner/eudaq2/user/ITS3/misc/', help='Path for configuration files')
+parser.add_argument('--data', '-d',default=None, help='Data directory')
+parser.add_argument('--run', '-r',default=None, help='Path for configuration files')
 parser.add_argument('--nothr', default=False, action='store_true', help='Disable threshold extrapolation')
 parser.add_argument('--setup', default='Setup.json', help='Setup file, contains configuration info.')
-parser.add_argument('--eudaq', default='/home/llautner/eudaq2/', help='Use $EUDAQ/bin/euCliReader to get event number')
+parser.add_argument('--eudaq', default=None, help='Use $EUDAQ/bin/euCliReader to get event number')
 parser.add_argument('--log',default=False,action='store_true',help='Output short run list for eLog entry')
 parser.add_argument('--debug','-v',default=False, action='store_true', help='Print debug info. (also skip event number)')
 args=parser.parse_args()
 
-RUN_DIR = args.run
-DATA_DIR = args.data
 with open(args.setup) as f:
   SETUP_DB = json.load(f)
+
+EUDAQ_DIR = SETUP_DB['general']['eudaq'] if (args.eudaq is None) else args.eudaq
+RUN_DIR = EUDAQ_DIR + '/user/ITS3/misc/' if (args.run is None) else args.run
+DATA_DIR = args.data
+if(DATA_DIR is None):
+  DATA_DIR = os.path.dirname(SETUP_DB['DataCollector.dc']['EUDAQ_FW_PATTERN'])
+
 
 # Result from Threshold scan
 THR_FLAG = not args.nothr
@@ -79,14 +84,15 @@ def GetFileSize(rawDataPath, suffix='B'):
 
 def GetNevents(rawDataPath):
   # From Bogdan
-  cmd = [args.eudaq + '/bin/euCliReader',"-i",rawDataPath,"-e", "10000000"]
+  cmd = [EUDAQ_DIR + '/bin/euCliReader',"-i",rawDataPath,"-e", "10000000"]
   result = subprocess.run(cmd, stdout=subprocess.PIPE)
   cfg = re.findall(r'\d+',result.stdout.decode('utf-8'))
   return int(cfg[0])
 
 # Run list
 RUN_NOW_TIME = time.time() - 60
-for fileName in next(os.walk(DATA_DIR))[2]:
+print(f' Run list generating for ${DATA_DIR}')
+for fileName in sorted(next(os.walk(DATA_DIR))[2]):
   if(not fileName.endswith('.raw')):
     continue
   print(f'> Processing {fileName}')
@@ -119,10 +125,10 @@ for fileName in next(os.walk(DATA_DIR))[2]:
     try:
       runInfo['confData'] = ReadConf(runInfo['configPath'])
     except FileNotFoundError:
-      print(f'[X] Error - run["configPath"] not found')
+      print(f'[X] Error - {runInfo["configPath"]} not found')
       csvWriter.writerow(runInfo)
       continue # Next raw file
-    print(f'---> Config : {run["Config"]}')
+    print(f'---> Config : {runInfo["Config"]}')
     # Chip settings
     thrAvg = 0.
     for chip in DUT_LIST:
