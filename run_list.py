@@ -36,7 +36,7 @@ for chip in SETUP_DB['general']['setup']:
     if(THR_FLAG):
       RUNLIST_CSV_FIELDS.append(f'THRe_{chip}')
 
-outputName = f'Runlist_{SETUP_DB["general"]["title"]}_{SETUP_DB["general"]["Vbb"]}V'
+outputName = f'Runlist_{SETUP_DB["general"]["title"]}'
 fOut = open(f'{outputName}.csv','w')
 csvWriter = csv.DictWriter(fOut, fieldnames=RUNLIST_CSV_FIELDS,extrasaction='ignore')
 csvWriter.writeheader()
@@ -104,10 +104,7 @@ for fileName in next(os.walk(DATA_DIR))[2]:
   runInfo['Date'] = timeStamp[0:2] + '.' + timeStamp[2:4] + '.' + timeStamp[4:6]
   runInfo['Time'] = timeStamp[6:8] + ':' + timeStamp[8:10]
   runInfo['End'] = time.strftime('%H:%M', time.localtime(fileTime))
-  runInfo['VBB'] = SETUP_DB['general']['Vbb']
   with open(filePath, errors='ignore') as f:
-    if(args.debug):
-      print(f'> Processing {filePath}')
     for i in range(20):
       l = f.readline()
       varMatch = re.match('Name[ ]+=[ ]+(.*)', l)
@@ -117,10 +114,12 @@ for fileName in next(os.walk(DATA_DIR))[2]:
         configFile = varMatch.group(1)
     runInfo['configPath'] = RUN_DIR + configFile
     runInfo['Config'] = os.path.basename(configFile)
+    print(f'> Processing {filePath}, {runInfo["Config"]}')
     runInfo['confData'] = ReadConf(runInfo['configPath'])
     thrAvg = 0.
     for chip in DUT_LIST:
       dutConfig = runInfo['confData'] [SETUP_DB['CHIPS'][chip]['name']]
+      runInfo['VBB'] = 0 if dutConfig['VCLIP'] == 0 else -3
       runInfo[f'ITHR_{chip}'] = dutConfig['ITHR']
       runInfo[f'VCASN_{chip}'] = dutConfig['VCASN']
       if(THR_FLAG):
@@ -133,6 +132,7 @@ for fileName in next(os.walk(DATA_DIR))[2]:
     thrAvg /= len(DUT_LIST)
     runInfo['THRe'] = round(thrAvg)
     csvWriter.writerow(runInfo)
+    print(f'---> DONE : Found {runInfo["Nevents"]} events')
     if(args.debug):
       print(','.join([str(runInfo[k]) for k in RUNLIST_CSV_FIELDS]))
     if(args.log):
