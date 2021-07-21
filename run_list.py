@@ -131,19 +131,24 @@ for fileName in sorted(next(os.walk(DATA_DIR))[2]):
     print(f'---> Config : {runInfo["Config"]}')
     # Chip settings
     thrAvg = 0.
+    chipCount = 0
     for chip in DUT_LIST:
       dutConfig = runInfo['confData'] [SETUP_DB['CHIPS'][chip]['name']]
       runInfo['VBB'] = 0 if dutConfig['VCLIP'] == 0 else -3
       runInfo[f'ITHR_{chip}'] = dutConfig['ITHR']
       runInfo[f'VCASN_{chip}'] = dutConfig['VCASN']
       if(THR_FLAG):
+        if(not config_thr.THR_DATA.get(chip)):
+          runInfo[f'THRe_{chip}'] = 100.
+          continue
         fit = config_thr.THR_DATA[chip][dutConfig['ITHR']]['fit']
         fitThr = interpolate.splev(dutConfig['VCASN'], fit, der=0)
         runInfo[f'THRe_{chip}'] = round(10 * float(fitThr))
         thrAvg += runInfo[f'THRe_{chip}']
+        chipCount += 1
       else:
         thrAvg += 100.
-    thrAvg /= len(DUT_LIST)
+    thrAvg /= chipCount
     runInfo['THRe'] = round(thrAvg)
     csvWriter.writerow(runInfo)
     print(f'---> DONE : Found {runInfo["Nevents"]} events')
