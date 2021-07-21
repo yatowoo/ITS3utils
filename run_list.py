@@ -89,6 +89,7 @@ RUN_NOW_TIME = time.time() - 60
 for fileName in next(os.walk(DATA_DIR))[2]:
   if(not fileName.endswith('.raw')):
     continue
+  print(f'> Processing {fileName}')
   filePath = DATA_DIR + '/' + fileName
   fileTime = os.path.getmtime(filePath)
   if(fileTime > RUN_NOW_TIME):
@@ -105,6 +106,7 @@ for fileName in next(os.walk(DATA_DIR))[2]:
   runInfo['Time'] = timeStamp[6:8] + ':' + timeStamp[8:10]
   runInfo['End'] = time.strftime('%H:%M', time.localtime(fileTime))
   with open(filePath, errors='ignore') as f:
+    # Find .conf in raw file (Name = *.conf)
     for i in range(20):
       l = f.readline()
       varMatch = re.match('Name[ ]+=[ ]+(.*)', l)
@@ -114,8 +116,14 @@ for fileName in next(os.walk(DATA_DIR))[2]:
         configFile = varMatch.group(1)
     runInfo['configPath'] = RUN_DIR + configFile
     runInfo['Config'] = os.path.basename(configFile)
-    print(f'> Processing {filePath}, {runInfo["Config"]}')
-    runInfo['confData'] = ReadConf(runInfo['configPath'])
+    try:
+      runInfo['confData'] = ReadConf(runInfo['configPath'])
+    except FileNotFoundError:
+      print(f'[X] Error - run["configPath"] not found')
+      csvWriter.writerow(runInfo)
+      continue # Next raw file
+    print(f'---> Config : {run["Config"]}')
+    # Chip settings
     thrAvg = 0.
     for chip in DUT_LIST:
       dutConfig = runInfo['confData'] [SETUP_DB['CHIPS'][chip]['name']]
