@@ -43,9 +43,10 @@ csvWriter.writeheader()
 
 # eLog entry
 RUNLIST_ELOG_FIELDS = ['RunNumber','THRe','Config','End','Nevents','Size']
-ELOG_FORMAT = '{x["RunNumber"]:s}|{x["THRe"]:^6.0f}|{x["Config"]:^35s}|{x["End"]:s}|{x["Nevents"]:6d}|{x["Size"]:s}|'
+ELOG_FORMAT = '{x[RunNumber]:30s}|{x[THRe]:^6.0f}|{x[Config]:^35s}|{x[End]:6s}|{x[Nevents]:^8d}|{x[Size]:8s}|'
 if(args.log):
   fLog = open(f'{outputName}.log','w')
+  fLog.write('{x[0]:30s}|{x[1]:6s}|{x[2]:35s}|{x[3]:6s}|{x[4]:8s}|{x[5]:8s}|'.format(x=RUNLIST_ELOG_FIELDS) +'\n')
 
 # Parse .conf file
 def ReadConf(confPath):
@@ -67,8 +68,15 @@ def ReadConf(confPath):
       else: # Empty or commented lines only
         pass
   return confData
-def GetFileSize(rawDataPath):
-  return os.path.getsize(rawDataPath)
+def GetFileSize(rawDataPath, suffix='B'):
+  num = os.path.getsize(rawDataPath)
+  # From Bogan - Human readable bytes
+  for unit in ['','K','M','G','T']:
+    if num < 1024.0:
+      return "%3.1f%s%s" % (num, unit, suffix)
+    num /= 1024.0
+  return "%.1f%s%s" % (num, 'Yi', suffix)
+
 def GetNevents(rawDataPath):
   # From Bogdan
   cmd = [args.eudaq + '/bin/euCliReader',"-i",rawDataPath,"-e", "10000000"]

@@ -39,37 +39,14 @@ TODO - Read .conf file to JSON/Dict
 ./config_thr.py --csv uITS3g2_0V_scan.csv --config $RUN_DIR/uITS3g2_conf_0V_ithr_50/
 ```
 
-
-## Runlist
-__run_list.py__ - Print run list in beam test
-* Walk data dir. and list file newer (mtime) than start
-* Skip current run (mtime < now - 60s)
-* Conf. name in 3rd line of raw data
-* Convert VCASN to threshold by __config_thr__, return average value of all DUTs
-* Nevent is hard coded as 300k
-* *TODO*: use param file for different setup
-
-Arguments
-| Name        | Short           | Description  |
-|------------- |:-------------:| -----|
-|--run|-r |Running directory (~/eudaq2/user/ITS3/misc/)|
-|	--start| -s|Start run number|
-|	--data|-d|Data path|
-|	--csv||Threshold scan data|
-|--nothr||Disable threshold interpolation, output 100e- as default|
-
-Output format:
-```text
-Run Number                   |  THRe  | Config                          | End   | Nevents | Size/MB | Comments
-run285172379_210716212923.raw|  51 e- | uITS3g1_conf_3V_ithr_70-0.conf  | 21:38 |   300k  |     439 |
-```
-
 ## Configuration file
 __make_conf.py__ - Generate .conf files from Setup (JSON)
 
 Usage: ./make_conf.py --setup,-s [Setup.json]
+* Copy `Setup.json` and modify for new settings
+* Notice `VCLIP` if change VBB, and alway create new data folder for new setup in `DataCollector.dc`
 
-Output: `{title}_ithr_{ithr}/{title}_ithr_{ithr}-{thr}.conf`
+Output: `{title}_conf_{Vbb}V_ithr_{ithr}/{title}_conf_{Vbb}V_ithr_{ithr}-{thr}.conf`
 
 Setup FILE (see example in `Setup.json`.)
 |Keywords in *[general]*|Description|
@@ -79,7 +56,39 @@ Setup FILE (see example in `Setup.json`.)
 |ithr_conf|ITHR list for .conf|
 |thr_conf|Threshold list for .conf|
 |setup|Chips order in .conf|
+|Vbb|Setting for DUTs|
 |ALPIDE|Basic settings for all chips^, specific in *[CHIPS]*|
 
-^ Threshold scan data should be the same format as CSV file in this repo.
-^ Notice `VCLIP` for VBB of setup
+^ Threshold scan data should be the same format as example file (like __uITS3g2_0V_scan.csv__).
+
+## Runlist
+__run_list.py__ - Print run list in beam test
+* Walk data dir. and find all `*.raw` file
+* Skip current run (mtime < now - 60s)
+* Conf. name in first 10 lines of raw data
+* Convert VCASN to threshold by __config_thr__, return average value of all DUTs
+* Nevent from `$EUDAQ/bin/euCliReader` (but processing slowly)
+
+Usage: ./run_list.py --setup [Setup.json] --data [$DATA_DIR] --run [$RUN_DIR] --eudaq [$EUDAQ_DIR]
+
+Arguments
+| Name        | Short           | Description  |
+|------------- |:-------------:| -----|
+|--run|-r |Running directory, also for configuration files ($EUDAQ/user/ITS3/misc/)|
+|	--setup||Setup file for configuration (see details above)|
+|	--data|-d|Data directory (all raw file with the same setup)|
+|--eudaq||Path to find `bin/euCliReader`|
+|--nothr||Disable threshold interpolation, output 100e- as default|
+|--log||Output short version for __eLog__ entry|
+|--debug|-v|Print debug info. (skip event number)|
+
+CSV:
+```text
+RunNumber,Size,Config,Date,Time,VBB,Nevents,ITHR_DUT0,VCASN_DUT0,THRe_DUT0,...
+```
+
+Log:
+```text
+RunNumber                   |  THRe  | Config                          | End   | Nevents | Size   |
+run285172379_210716212923.raw|  51 e- | uITS3g1_conf_3V_ithr_70-0.conf  | 21:38 |   300k  | 439.1MB|
+```
