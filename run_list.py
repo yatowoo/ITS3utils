@@ -9,9 +9,10 @@ parser=argparse.ArgumentParser(description='Run list generator',formatter_class=
 parser.add_argument('--data', '-d',default=None, help='Data directory')
 parser.add_argument('--run', '-r',default=None, help='Path for configuration files')
 parser.add_argument('--nothr', default=False, action='store_true', help='Disable threshold extrapolation')
-parser.add_argument('--setup','-s', default='Setup.json', help='Setup file, contains configuration info.')
+parser.add_argument('--setup','-f', default='Setup.json', help='Setup file, contains configuration info.')
 parser.add_argument('--eudaq', default=None, help='Use $EUDAQ/bin/euCliReader to get event number')
 parser.add_argument('--log',default=False,action='store_true',help='Output short run list for eLog entry')
+parser.add_argument('--start', '-s',default=None,help='Specify start run and append existed runlist')
 parser.add_argument('--debug','-v',default=False, action='store_true', help='Print debug info. (also skip event number)')
 args=parser.parse_args()
 
@@ -42,9 +43,16 @@ for chip in SETUP_DB['general']['setup']:
       RUNLIST_CSV_FIELDS.append(f'THRe_{chip}')
 
 outputName = f'Runlist_{SETUP_DB["general"]["title"]}'
-fOut = open(f'{outputName}.csv','w')
-csvWriter = csv.DictWriter(fOut, fieldnames=RUNLIST_CSV_FIELDS,extrasaction='ignore')
-csvWriter.writeheader()
+csvFileName = f'{outputName}.csv'
+# Run list CSV file
+  # Check start flag and file existence
+if(args.start is None or not os.path.isfile(csvFileName)):
+  fOut = open(csvFileName,'w+')
+  csvWriter = csv.DictWriter(fOut, fieldnames=RUNLIST_CSV_FIELDS,extrasaction='ignore')
+  csvWriter.writeheader()
+else:
+  fOut = open(csvFileName,'a+')
+  csvWriter = csv.DictWriter(fOut, fieldnames=RUNLIST_CSV_FIELDS,extrasaction='ignore')
 
 # eLog entry
 RUNLIST_ELOG_FIELDS = ['RunNumber','THRe','Config','End','Nevents','Size']
@@ -89,17 +97,16 @@ def GetNevents(rawDataPath):
   cfg = re.findall(r'\d+',result.stdout.decode('utf-8'))
   return int(cfg[0])
 
-# Run list
+# Run list over data directory
+RUN_START_TIME = 0 if args.start is None else os.path.getmtime(DATA_DIR + '/' + args.start)
 RUN_NOW_TIME = time.time() - 60
 print(f' Run list generating for {DATA_DIR}')
 for fileName in sorted(next(os.walk(DATA_DIR))[2]):
-  if(not fileName.endswith('.raw')):
-    continue
-  print(f'> Processing {fileName}')
   filePath = DATA_DIR + '/' + fileName
   fileTime = os.path.getmtime(filePath)
-  if(fileTime > RUN_NOW_TIME):
+  if(not fileName.endswith('.raw') or fileTime < RUN_START_TIME or fileTime > RUN_NOW_TIME):
     continue
+  print(f'> Processing {fileName}')
   runInfo = {}
   runInfo['RunNumber'] = fileName
   runInfo['Size'] = GetFileSize(filePath)
