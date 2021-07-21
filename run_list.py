@@ -9,7 +9,7 @@ parser=argparse.ArgumentParser(description='Run list generator',formatter_class=
 parser.add_argument('--data', '-d',default=None, help='Data directory')
 parser.add_argument('--run', '-r',default=None, help='Path for configuration files')
 parser.add_argument('--nothr', default=False, action='store_true', help='Disable threshold extrapolation')
-parser.add_argument('--setup', default='Setup.json', help='Setup file, contains configuration info.')
+parser.add_argument('--setup','-s', default='Setup.json', help='Setup file, contains configuration info.')
 parser.add_argument('--eudaq', default=None, help='Use $EUDAQ/bin/euCliReader to get event number')
 parser.add_argument('--log',default=False,action='store_true',help='Output short run list for eLog entry')
 parser.add_argument('--debug','-v',default=False, action='store_true', help='Print debug info. (also skip event number)')
@@ -26,7 +26,7 @@ if(DATA_DIR is None):
 
 
 # Result from Threshold scan
-THR_FLAG = not args.nothr
+THR_FLAG = not args.nothr and (SETUP_DB['general']['thr_scan'] != '')
 if(THR_FLAG):
   import config_thr
   config_thr.InitScanData(SETUP_DB['general']['thr_scan'])
@@ -91,7 +91,7 @@ def GetNevents(rawDataPath):
 
 # Run list
 RUN_NOW_TIME = time.time() - 60
-print(f' Run list generating for ${DATA_DIR}')
+print(f' Run list generating for {DATA_DIR}')
 for fileName in sorted(next(os.walk(DATA_DIR))[2]):
   if(not fileName.endswith('.raw')):
     continue

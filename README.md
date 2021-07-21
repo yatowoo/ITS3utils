@@ -52,6 +52,7 @@ Setup FILE (see example in `Setup.json`.)
 |Keywords in *[general]*|Description|
 |---|---|
 |title|Name of setup, as prefix of .conf|
+|eudaq|`$EUDAQ_DIR` with running script and `bin/euCliReader`|
 |thr_scan|Threshold scan data^ for VCASN<->THR fitting|
 |ithr_conf|ITHR list for .conf|
 |thr_conf|Threshold list for .conf|
@@ -74,9 +75,9 @@ Usage: ./run_list.py --setup [Setup.json] --data [$DATA_DIR] --run [$RUN_DIR] --
 Arguments
 | Name        | Short           | Description  |
 |------------- |:-------------:| -----|
-|--run|-r |Running directory, also for configuration files ($EUDAQ/user/ITS3/misc/)|
 |	--setup||Setup file for configuration (see details above)|
-|	--data|-d|Data directory (all raw file with the same setup)|
+|--run|-r |Running directory, also for configuration files ($EUDAQ/user/ITS3/misc/)|
+|	--data|-d|Data directory (all raw file with the same setup, default: `DataCollector.dc/EUDAQ_FW_PATTERN`)|
 |--eudaq||Path to find `bin/euCliReader`|
 |--nothr||Disable threshold interpolation, output 100e- as default|
 |--log||Output short version for __eLog__ entry|
