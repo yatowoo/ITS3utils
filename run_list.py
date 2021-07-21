@@ -11,7 +11,8 @@ parser.add_argument('--run', '-r',default='/home/llautner/eudaq2/user/ITS3/misc/
 parser.add_argument('--nothr', default=False, action='store_true', help='Disable threshold extrapolation')
 parser.add_argument('--setup', default='Setup.json', help='Setup file, contains configuration info.')
 parser.add_argument('--eudaq', default='/home/llautner/eudaq2/', help='Use $EUDAQ/bin/euCliReader to get event number')
-parser.add_argument('--debug','-v',default=False, action='store_true', help='Print debug info.')
+parser.add_argument('--log',default=False,action='store_true',help='Output short run list for eLog entry')
+parser.add_argument('--debug','-v',default=False, action='store_true', help='Print debug info. (also skip event number)')
 args=parser.parse_args()
 
 RUN_DIR = args.run
@@ -27,15 +28,24 @@ if(THR_FLAG):
 
 RUNLIST_CSV_FIELDS = ['RunNumber','Size','Config','Date','Time','VBB', 'Nevents']
 # DAC of DUTs - ITHR, VCASN, THRe
+DUT_LIST = []
 for chip in SETUP_DB['general']['setup']:
   if(chip.startswith('DUT')):
+    DUT_LIST.append(chip)
     RUNLIST_CSV_FIELDS += [f'ITHR_{chip}', f'VCASN_{chip}']
     if(THR_FLAG):
       RUNLIST_CSV_FIELDS.append(f'THRe_{chip}')
 
-fOut = open(f'Runlist_{SETUP_DB["general"]["title"]}.csv','w')
+outputName = f'Runlist_{SETUP_DB["general"]["title"]}_{SETUP_DB["general"]["Vbb"]}V'
+fOut = open(f'{outputName}.csv','w')
 csvWriter = csv.DictWriter(fOut, fieldnames=RUNLIST_CSV_FIELDS,extrasaction='ignore')
 csvWriter.writeheader()
+
+# eLog entry
+RUNLIST_ELOG_FIELDS = ['RunNumber','THRe','Config','End','Nevents','Size']
+ELOG_FORMAT = '{x["RunNumber"]:s}|{x["THRe"]:^6.0f}|{x["Config"]:^35s}|{x["End"]:s}|{x["Nevents"]:6d}|{x["Size"]:s}|'
+if(args.log):
+  fLog = open(f'{outputName}.log','w')
 
 # Parse .conf file
 def ReadConf(confPath):
@@ -85,6 +95,7 @@ for fileName in next(os.walk(DATA_DIR))[2]:
   timeStamp = fileName.split('_')[1]
   runInfo['Date'] = timeStamp[0:2] + '.' + timeStamp[2:4] + '.' + timeStamp[4:6]
   runInfo['Time'] = timeStamp[6:8] + ':' + timeStamp[8:10]
+  runInfo['End'] = time.strftime('%H:%M', time.localtime(fileTime))
   runInfo['VBB'] = SETUP_DB['general']['Vbb']
   with open(filePath, errors='ignore') as f:
     if(args.debug):
@@ -99,9 +110,8 @@ for fileName in next(os.walk(DATA_DIR))[2]:
     runInfo['configPath'] = RUN_DIR + configFile
     runInfo['Config'] = os.path.basename(configFile)
     runInfo['confData'] = ReadConf(runInfo['configPath'])
-    for chip in SETUP_DB['general']['setup']:
-      if(not chip.startswith('DUT')):
-        continue
+    thrAvg = 0.
+    for chip in DUT_LIST:
       dutConfig = runInfo['confData'] [SETUP_DB['CHIPS'][chip]['name']]
       runInfo[f'ITHR_{chip}'] = dutConfig['ITHR']
       runInfo[f'VCASN_{chip}'] = dutConfig['VCASN']
@@ -109,9 +119,20 @@ for fileName in next(os.walk(DATA_DIR))[2]:
         fit = config_thr.THR_DATA[chip][dutConfig['ITHR']]['fit']
         fitThr = interpolate.splev(dutConfig['VCASN'], fit, der=0)
         runInfo[f'THRe_{chip}'] = round(10 * float(fitThr))
+        thrAvg += runInfo[f'THRe_{chip}']
+      else:
+        thrAvg += 100.
+    thrAvg /= len(DUT_LIST)
+    runInfo['THRe'] = round(thrAvg)
     csvWriter.writerow(runInfo)
     if(args.debug):
       print(','.join([str(runInfo[k]) for k in RUNLIST_CSV_FIELDS]))
+    if(args.log):
+      fLog.write(ELOG_FORMAT.format(x=runInfo) + '\n')
 # Output
+print('[+] Run list generated --> ' + fOut.name)
 fOut.close()
+if(args.log):
+  print('[+] Run list generated for eLog ---> ' + fLog.name)
+  fLog.close()
 # END

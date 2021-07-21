@@ -43,14 +43,14 @@ if __name__ == '__main__':
   config_thr.ThresholdForConfig(SETUP_DB['general']['thr_conf'])
   for ithr in SETUP_DB['general']['ithr_conf']:
     for i, thr in enumerate(SETUP_DB['general']['thr_conf']):
-      confDir = f'{SETUP_DB["general"]["title"]}_ithr_{ithr}'
+      confDir = f'{SETUP_DB["general"]["title"]}_conf_{SETUP_DB["general"]["Vbb"]}V_ithr_{ithr}'
       # Create folder for ITHR
       try:
         os.mkdir(confDir)
       except FileExistsError:
         pass
       # Print .conf file
-      with open(f'{confDir}/{SETUP_DB["general"]["title"]}_ithr_{ithr}-{thr}.conf','w') as f:
+      with open(f'{confDir}/{confDir}-{thr}.conf','w') as f:
         for chip in config_thr.THR_DATA.keys():
           vcasn = math.floor(config_thr.THR_DATA[chip][ithr]['vcasn_config'][i])
           SETUP_DB['CHIPS'][chip]['ITHR'] = ithr
