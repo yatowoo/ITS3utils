@@ -43,6 +43,8 @@ for chip in SETUP_DB['general']['setup']:
       RUNLIST_CSV_FIELDS.append(f'THRe_{chip}')
 
 outputName = f'Runlist_{SETUP_DB["general"]["title"]}'
+if(args.debug):
+  outputName += '_debug'
 csvFileName = f'{outputName}.csv'
 # Run list CSV file
   # Check start flag and file existence
@@ -153,9 +155,10 @@ for fileName in sorted(next(os.walk(DATA_DIR))[2]):
         runInfo[f'THRe_{chip}'] = round(10 * float(fitThr))
         thrAvg += runInfo[f'THRe_{chip}']
         chipCount += 1
-      else:
-        thrAvg += 100.
-    thrAvg /= chipCount
+    if(THR_FLAG and chipCount > 0):
+      thrAvg /= chipCount
+    else:
+      thrAvg = 100.
     runInfo['THRe'] = round(thrAvg)
     csvWriter.writerow(runInfo)
     print(f'---> DONE : Found {runInfo["Nevents"]} events')
