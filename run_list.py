@@ -102,6 +102,7 @@ def GetNevents(rawDataPath):
 # Run list over data directory
 RUN_START_TIME = 0 if args.start is None else os.path.getmtime(DATA_DIR + '/' + args.start)
 RUN_NOW_TIME = time.time() - 60
+run_count = 0
 print(f' Run list generating for {DATA_DIR}')
 for fileName in sorted(next(os.walk(DATA_DIR))[2]):
   filePath = DATA_DIR + '/' + fileName
@@ -109,6 +110,7 @@ for fileName in sorted(next(os.walk(DATA_DIR))[2]):
   if(not fileName.endswith('.raw') or fileTime < RUN_START_TIME or fileTime > RUN_NOW_TIME):
     continue
   print(f'> Processing {fileName}')
+  run_count += 1
   runInfo = {}
   runInfo['RunNumber'] = fileName
   runInfo['Size'] = GetFileSize(filePath)
@@ -167,7 +169,7 @@ for fileName in sorted(next(os.walk(DATA_DIR))[2]):
     if(args.log):
       fLog.write(ELOG_FORMAT.format(x=runInfo) + '\n')
 # Output
-print('[+] Run list generated --> ' + fOut.name)
+print(f'[+] {run_count} runs found. Run list generated --> {fOut.name}')
 fOut.close()
 if(args.log):
   print('[+] Run list generated for eLog ---> ' + fLog.name)
