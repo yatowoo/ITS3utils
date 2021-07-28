@@ -8,6 +8,7 @@ from scipy import interpolate
 parser=argparse.ArgumentParser(description='Run list generator',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', '-d',default=None, help='Data directory')
 parser.add_argument('--run', '-r',default=None, help='Path for configuration files')
+parser.add_argument('--thr',default=None, help='Threshold scan data (.csv)')
 parser.add_argument('--nothr', default=False, action='store_true', help='Disable threshold extrapolation')
 parser.add_argument('--setup','-f', default='Setup.json', help='Setup file, contains configuration info.')
 parser.add_argument('--eudaq', default=None, help='Use $EUDAQ/bin/euCliReader to get event number')
@@ -27,10 +28,13 @@ if(DATA_DIR is None):
 
 
 # Result from Threshold scan
-THR_FLAG = not args.nothr and (SETUP_DB['general']['thr_scan'] != '')
+THR_SCAN_DATA = args.scan
+if(THR_SCAN_DATA is None):
+  THR_SCAN_DATA = SETUP_DB['general']['thr_scan']
+THR_FLAG = not args.nothr and (THR_SCAN_DATA != '')
 if(THR_FLAG):
   import config_thr
-  config_thr.InitScanData(SETUP_DB['general']['thr_scan'])
+  config_thr.InitScanData(THR_SCAN_DATA)
 
 RUNLIST_CSV_FIELDS = ['RunNumber', 'BeamType', 'Nevents', 'Size','Config','Date','Time']
 # DAC of DUTs - ITHR, VCASN, THRe
