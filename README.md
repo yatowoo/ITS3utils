@@ -79,6 +79,7 @@ Arguments
 |--run|-r |Running directory, also for configuration files ($EUDAQ/user/ITS3/misc/)|
 |	--data|-d|Data directory (all raw file with the same setup, default: `DataCollector.dc/EUDAQ_FW_PATTERN`)|
 |--eudaq||Path to find `bin/euCliReader`|
+|--thr||Threshold scan data (.csv)|
 |--nothr||Disable threshold interpolation, output 100e- as default|
 |--log||Output short version for __eLog__ entry|
 |--start|-s|Specify start run and append existed runlist|

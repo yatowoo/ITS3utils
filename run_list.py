@@ -28,7 +28,7 @@ if(DATA_DIR is None):
 
 
 # Result from Threshold scan
-THR_SCAN_DATA = args.scan
+THR_SCAN_DATA = args.thr
 if(THR_SCAN_DATA is None):
   THR_SCAN_DATA = SETUP_DB['general']['thr_scan']
 THR_FLAG = not args.nothr and (THR_SCAN_DATA != '')
