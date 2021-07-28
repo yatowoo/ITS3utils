@@ -1,0 +1,45 @@
+{
+"general":{
+  "title": "A1",
+  "eudaq": "/home/palpidefs/eudaq2/",
+  "thr_scan": "",
+  "ithr_conf": [51],
+  "thr_conf": [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 35, 40],
+  "setup": ["DUT0", "REF0", "REF1", "REF2", "REF3"],
+  "Vbb": 0,
+  "ALPIDE": {
+    "fixedbusy": 8000,
+    "minspacing": 2400,
+    "EUDAQ_DC": "dc",
+    "EUDAQ_ID": 0,
+    "ITHR": 51,
+    "VCASN": 109,
+    "VCASN2": 121,
+    "VCLIP": 60,
+    "IDB": 29,
+    "STROBE_LENGTH": 100
+  }
+},
+"RunControl": {
+  "EUDAQ_CTRL_PRODUCER_LAST_START": "ALPIDE_plane_2",
+  "EUDAQ_CTRL_PRODUCER_FIRST_STOP": "ALPIDE_plane_2",
+  "NEVENTS": 300000
+},
+"Producer.POWER": {
+  "EUDAQ_DC": "dc"
+},
+"Producer.PTH": {
+  "EUDAQ_DC": "dc"
+},
+"DataCollector.dc": {
+  "EUDAQ_FW": "native",
+  "EUDAQ_FW_PATTERN": "/run/media/palpidefs/T7/SPSjuly2021/A1/run$6R_$12D$X"
+},
+"CHIPS":{
+  "DUT0":{"name":"Producer.ALPIDE_plane_2", "EUDAQ_ID":3, "CHIPID":0, "RDOMODE":"DCTRL"},
+  "REF0":{"name":"Producer.ALPIDE_plane_0", "EUDAQ_ID":0, "VCASN":109, "VCASN2":121},
+  "REF1":{"name":"Producer.ALPIDE_plane_1", "EUDAQ_ID":1, "VCASN":108, "VCASN2":120},
+  "REF2":{"name":"Producer.ALPIDE_plane_3", "EUDAQ_ID":3, "VCASN":108, "VCASN":120},
+  "REF3":{"name":"Producer.ALPIDE_plane_4", "EUDAQ_ID":4, "VCASN":107, "VCASN":119}
+}
+}
