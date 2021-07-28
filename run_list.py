@@ -32,13 +32,13 @@ if(THR_FLAG):
   import config_thr
   config_thr.InitScanData(SETUP_DB['general']['thr_scan'])
 
-RUNLIST_CSV_FIELDS = ['RunNumber','Size','Config','Date','Time','VBB', 'Nevents']
+RUNLIST_CSV_FIELDS = ['RunNumber', 'BeamType', 'Nevents', 'Size','Config','Date','Time']
 # DAC of DUTs - ITHR, VCASN, THRe
 DUT_LIST = []
 for chip in SETUP_DB['general']['setup']:
   if(chip.startswith('DUT')):
     DUT_LIST.append(chip)
-    RUNLIST_CSV_FIELDS += [f'ITHR_{chip}', f'VCASN_{chip}']
+    RUNLIST_CSV_FIELDS += [f'VBB_{chip}', f'ITHR_{chip}', f'VCASN_{chip}']
     if(THR_FLAG):
       RUNLIST_CSV_FIELDS.append(f'THRe_{chip}')
 
@@ -103,7 +103,7 @@ def GetNevents(rawDataPath):
 RUN_START_TIME = 0 if args.start is None else os.path.getmtime(DATA_DIR + '/' + args.start)
 RUN_NOW_TIME = time.time() - 60
 run_count = 0
-print(f' Run list generating for {DATA_DIR}')
+print(f'[-] Run list generating for {DATA_DIR}')
 for fileName in sorted(next(os.walk(DATA_DIR))[2]):
   filePath = DATA_DIR + '/' + fileName
   fileTime = os.path.getmtime(filePath)
@@ -113,6 +113,11 @@ for fileName in sorted(next(os.walk(DATA_DIR))[2]):
   run_count += 1
   runInfo = {}
   runInfo['RunNumber'] = fileName
+  beamStr = SETUP_DB['general'].get('BeamType')
+  if(beamStr is None or beamStr == ''):
+    runInfo['BeamType'] = '120 GeV hardons' # only for SPS H6
+  else:
+    runInfo['BeamType'] = beamStr
   runInfo['Size'] = GetFileSize(filePath)
   if(args.debug):
       runInfo['Nevents'] = 300000
@@ -145,7 +150,7 @@ for fileName in sorted(next(os.walk(DATA_DIR))[2]):
     chipCount = 0
     for chip in DUT_LIST:
       dutConfig = runInfo['confData'] [SETUP_DB['CHIPS'][chip]['name']]
-      runInfo['VBB'] = 0 if dutConfig['VCLIP'] == 0 else -3
+      runInfo[f'VBB_{chip}'] = 0 if dutConfig['VCLIP'] == 0 else -3
       runInfo[f'ITHR_{chip}'] = dutConfig['ITHR']
       runInfo[f'VCASN_{chip}'] = dutConfig['VCASN']
       if(THR_FLAG):
