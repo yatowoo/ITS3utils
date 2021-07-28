@@ -40,7 +40,7 @@ RUNLIST_CSV_FIELDS = ['RunNumber', 'BeamType', 'Nevents', 'Size','Config','Date'
 # DAC of DUTs - ITHR, VCASN, THRe
 DUT_LIST = []
 for chip in SETUP_DB['general']['setup']:
-  if(chip.startswith('DUT')):
+  if(not chip.startswith('REF')):
     DUT_LIST.append(chip)
     RUNLIST_CSV_FIELDS += [f'VBB_{chip}', f'ITHR_{chip}', f'VCASN_{chip}']
     if(THR_FLAG):
