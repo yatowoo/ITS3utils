@@ -35,11 +35,11 @@ REGISTER_CONVERTER(CE65)
   }
   SendEvent(std::move(ev));
 **/
-bool DPTSRawEvent2StdEventConverter::Converting(eudaq::EventSPC in,eudaq::StdEventSP out,eudaq::ConfigSPC conf) const{
+bool CE65RawEvent2StdEventConverter::Converting(eudaq::EventSPC in,eudaq::StdEventSP out,eudaq::ConfigSPC conf) const{
   auto rawev=std::dynamic_pointer_cast<const eudaq::RawEvent>(in);
   // TODO: more than 1 plane(CE65)?, loop on rawev->GetEvecieN()
   eudaq::StandardPlane plane(rawev->GetDeviceN(),"ITS3DAQ","CE65");
-  plane.SetSizeRaw(CE65RawEvent2StdEventConverter::Y_MX_SIZE, CE65RawEvent2StdEventConverter::X_MX_SIZE, rawev->NumBlocks())
+  plane.SetSizeRaw(CE65RawEvent2StdEventConverter::Y_MX_SIZE, CE65RawEvent2StdEventConverter::X_MX_SIZE, rawev->NumBlocks());
   // Frame <-> Block (from Producer)
   for (int iFrame = 0; iFrame < rawev->NumBlocks(); iFrame++){
     std::vector<uint8_t> data=rawev->GetBlock(iFrame);
@@ -48,7 +48,7 @@ bool DPTSRawEvent2StdEventConverter::Converting(eudaq::EventSPC in,eudaq::StdEve
       for(int iy=0; iy < CE65RawEvent2StdEventConverter::Y_MX_SIZE; iy++){
         int iPixel = iy + ix * CE65RawEvent2StdEventConverter::Y_MX_SIZE;
         plane.PushPixel(iy, ix, data.at(iPixel), (uint64_t)0, false, iFrame);
-    }
+    }}
   }// End - Frame/Block loop
   out->AddPlane(plane);
 
