@@ -46,7 +46,7 @@ for daq in ${DAQS[@]}; do
 	    mkdir -p $outputdir/output_$daq/
             fname=thrscan-$daq-$vclip-$ithr-$vcasn
 	    echo $outputdir/output_$daq/$fname.raw
-            awk 'BEGIN {for (i=0;i<512;i+=32) print "-r " i}' | xargs $ALPIDE_DAQ/scans/thrscan.py -s $daq -v $vcasn -w $vcasn2 -i $ithr --dvmax=$dvmax --vclip=$vclip --chipid=$chipid --dctrl --output=$outputdir/output_$daq/$fname.raw --params=$outputdir/output_$daq/$fname.json
+	    $ALPIDE_DAQ/scans/thrscan.py -s $daq -v $vcasn -w $vcasn2 -i $ithr --dvmax=$dvmax --vclip=$vclip --chipid=$chipid --dctrl --output=$outputdir/output_$daq/$fname.raw --params=$outputdir/output_$daq/$fname.json
 	done
     done
 done
