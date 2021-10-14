@@ -2,6 +2,7 @@
 user/*
 tmp/*
 */*.conf
+lab/output*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
