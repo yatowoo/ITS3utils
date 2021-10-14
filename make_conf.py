@@ -51,7 +51,7 @@ if __name__ == '__main__':
         pass
       # Print .conf file
       with open(f'{confDir}/{confDir}-{thr}.conf','w') as f:
-        for chip in config_thr.THR_DATA.keys():
+        for chip in [x for x in config_thr.THR_DATA.keys() if x in SETUP_DB["general"]["setup"]]:
           vcasn = math.floor(config_thr.THR_DATA[chip][ithr]['vcasn_config'][i])
           SETUP_DB['CHIPS'][chip]['ITHR'] = ithr
           SETUP_DB['CHIPS'][chip]['VCASN'] = vcasn
