@@ -20,12 +20,13 @@ vcasn_sets=(
 #VCASN=(55)
 ITHR=(60)
 chipid=16
-dvmax=50
+dvmax=20
 vclip=60 #60 for Vbb=-3V, 0 for Vbb=0V
 vcasn2add=12
 #Note, below no absolute path!
-ALPIDE_DAQ=/home/pi/llautner/alpide-daq-software-latest/
+ALPIDE_DAQ=/home/pi/llautner/alpide-daq-software/
 outputdir=./output/
+workingdir=$(pwd)
 
 echo "Output directory: " $outputdir
 echo "VCASN2 minus VCASN: " $vcasn2add
@@ -46,7 +47,10 @@ for daq in ${DAQS[@]}; do
 	    mkdir -p $outputdir/output_$daq/
             fname=thrscan-$daq-$vclip-$ithr-$vcasn
 	    echo $outputdir/output_$daq/$fname.raw
-	    $ALPIDE_DAQ/scans/thrscan.py -s $daq -v $vcasn -w $vcasn2 -i $ithr --dvmax=$dvmax --vclip=$vclip --chipid=$chipid --dctrl --output=$outputdir/output_$daq/$fname.raw --params=$outputdir/output_$daq/$fname.json
+	    $ALPIDE_DAQ/scans/thrscan.py -s $daq -v $vcasn -w $vcasn2 -i $ithr --dvmax=$dvmax --vclip=$vclip --chipid=$chipid --output=$outputdir/output_$daq/$fname.raw --params=$outputdir/output_$daq/$fname.json
+	    cd $outputdir/output_$daq/
+	    $ALPIDE_DAQ/analyses/thrscanana.py $fname.{raw,json} 2>&1 >/dev/null &
+	    cd $workingdir 
 	done
     done
 done
