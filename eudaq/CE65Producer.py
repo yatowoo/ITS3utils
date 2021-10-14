@@ -10,7 +10,7 @@ from datetime import datetime
 from time import sleep
 import subprocess
 
-class DPTSProducer(pyeudaq.Producer):
+class CE65Producer(pyeudaq.Producer):
     def __init__(self,name,runctrl):
         pyeudaq.Producer.__init__(self,name,runctrl)
         print(name)
@@ -136,7 +136,7 @@ if __name__=='__main__':
     parser.add_argument('--name' ,'-n',default='DPTS_XXX')
     args=parser.parse_args()
 
-    myproducer=DPTSProducer(args.name,args.run_control)
+    myproducer=CE65Producer(args.name,args.run_control)
     myproducer.Connect()
     while(myproducer.IsConnected()):
         #TODO: reod...
