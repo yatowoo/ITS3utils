@@ -3,16 +3,16 @@ DAQS=$(alpide-daq-program -l | grep -o DAQ-.* | cut -f1 -d' ') # scan all connec
 
 declare -A vcasn_sets
 vcasn_sets=(
-["DAQ-00090611004E160A"]="113" 
-["DAQ-000909250959131E"]="112" 
-["DAQ-00090611004E2A11"]="109" 
-["DAQ-000904250114120A"]="106" 
+["DAQ-00090611004E160A"]="108 109 110 111 112" 
+["DAQ-000909250959131E"]="108 109 110 111 112" 
+["DAQ-00090611004E2A11"]="104 105 106 107 108" 
+["DAQ-000904250114120A"]="105 106 107" 
 ["DAQ-0009060A02441C27"]="108" 
 ["DAQ-00090611004E0B0D"]="107" 
 ["DAQ-000909250959071E"]="110" 
-["DAQ-000904250102072C"]="104" 
-["DAQ-00090425010F0C31"]="110" 
-["DAQ-000909250959381A"]="112")
+["DAQ-000904250102072C"]="102 103 104 105 106" 
+["DAQ-00090425010F0C31"]="108 109 110 111" 
+["DAQ-000909250959381A"]="107 108 109 110 111")
 
 #DAQS=('DAQ-00090425010F0C31')   #specifiy DAQ board serial numbers manually
 #VCASN=(110)
@@ -49,6 +49,7 @@ for daq in ${DAQS[@]}; do
 	    echo $outputdir/output_$daq/$fname.raw
 	    $ALPIDE_DAQ/scans/thrscan.py -s $daq -v $vcasn -w $vcasn2 -i $ithr --dvmax=$dvmax --vclip=$vclip --chipid=$chipid --output=$outputdir/output_$daq/$fname.raw --params=$outputdir/output_$daq/$fname.json
 	    cd $outputdir/output_$daq/
+	    unset DISPLAY
 	    $ALPIDE_DAQ/analyses/thrscanana.py $fname.{raw,json} 2>&1 >/dev/null &
 	    cd $workingdir 
 	done
