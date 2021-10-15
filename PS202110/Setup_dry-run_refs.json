@@ -15,7 +15,7 @@
     "ITHR": 60,
     "VCASN": 105,
     "VCASN2": 117,
-    "VCLIP": 0,
+    "VCLIP": 60,
     "IDB": 29,
     "STROBE_LENGTH": 400
   }
@@ -33,18 +33,18 @@
 },
 "DataCollector.dc": {
   "EUDAQ_FW": "native",
-  "EUDAQ_FW_PATTERN": "/media/T71/SPSJuly2021/uITS3g2/Vbb0/run$3R_$12D$X"
+  "EUDAQ_FW_PATTERN": "/media/T7/PS202110/dry-run/run$3R_$12D$X"
 },
 "CHIPS":{
-  "REF0":{"EUDAQ_ID":0, "name":"Producer.ALPIDE_plane_0", "DAQ":"DAQ-00090611004E160A", "VCASN":113, "VCASN2":125},
-  "REF1":{"EUDAQ_ID":1, "name":"Producer.ALPIDE_plane_1", "DAQ":"DAQ-000909250959131E", "VCASN":112, "VCASN2":124},
-  "REF2":{"EUDAQ_ID":2, "name":"Producer.ALPIDE_plane_2", "DAQ":"DAQ-00090611004E2A11", "VCASN":109, "VCASN2":121},
+  "REF0":{"EUDAQ_ID":0, "name":"Producer.ALPIDE_plane_0", "DAQ":"DAQ-00090611004E160A", "VCASN":109, "VCASN2":121},
+  "REF1":{"EUDAQ_ID":1, "name":"Producer.ALPIDE_plane_1", "DAQ":"DAQ-000909250959131E", "VCASN":109, "VCASN2":121},
+  "REF2":{"EUDAQ_ID":2, "name":"Producer.ALPIDE_plane_2", "DAQ":"DAQ-00090611004E2A11", "VCASN":106, "VCASN2":118},
   "REF3":{"EUDAQ_ID":3, "name":"Producer.ALPIDE_plane_3", "DAQ":"DAQ-000904250114120A", "VCASN":106, "VCASN2":118},
-  "REF4":{"EUDAQ_ID":4, "name":"Producer.ALPIDE_plane_4", "DAQ":"DAQ-0009060A02441C27", "VCASN":108, "VCASN2":120},
-  "REF5":{"EUDAQ_ID":5, "name":"Producer.ALPIDE_plane_5", "DAQ":"DAQ-00090611004E0B0D", "VCASN":107, "VCASN2":119},
-  "REF6":{"EUDAQ_ID":6, "name":"Producer.ALPIDE_plane_6", "DAQ":"DAQ-000909250959071E", "VCASN":110, "VCASN2":122},
+  "REF4":{"EUDAQ_ID":4, "name":"Producer.ALPIDE_plane_4", "DAQ":"DAQ-0009060A02441C27", "VCASN":110, "VCASN2":122},
+  "REF5":{"EUDAQ_ID":5, "name":"Producer.ALPIDE_plane_5", "DAQ":"DAQ-00090611004E0B0D", "VCASN":106, "VCASN2":118},
+  "REF6":{"EUDAQ_ID":6, "name":"Producer.ALPIDE_plane_6", "DAQ":"DAQ-000909250959071E", "VCASN":108, "VCASN2":120},
   "REF7":{"EUDAQ_ID":7, "name":"Producer.ALPIDE_plane_7", "DAQ":"DAQ-000904250102072C", "VCASN":104, "VCASN2":116},
-  "REF8":{"EUDAQ_ID":8, "name":"Producer.ALPIDE_plane_8", "DAQ":"DAQ-00090425010F0C31", "VCASN":110, "VCASN2":122},
-  "REF9":{"EUDAQ_ID":9, "name":"Producer.ALPIDE_plane_9", "DAQ":"DAQ-000909250959381A", "VCASN":112, "VCASN2":124}
+  "REF8":{"EUDAQ_ID":8, "name":"Producer.ALPIDE_plane_8", "DAQ":"DAQ-00090425010F0C31", "VCASN":109, "VCASN2":121},
+  "REF9":{"EUDAQ_ID":9, "name":"Producer.ALPIDE_plane_9", "DAQ":"DAQ-000909250959381A", "VCASN":109, "VCASN2":121}
 }
 }
