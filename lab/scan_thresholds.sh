@@ -1,8 +1,10 @@
 #!/bin/bash -
-DAQS=$(alpide-daq-program -l | grep -o DAQ-.* | cut -f1 -d' ') # scan all connected DAQ boards
+#DAQS=$(alpide-daq-program -l | grep -o DAQ-.* | cut -f1 -d' ') # scan all connected DAQ boards
+DAQS=('DAQ-00090611004E150B')
 
 declare -A vcasn_sets
 vcasn_sets=(
+["DAQ-00090611004E150B"]="108 109 110"
 ["DAQ-00090611004E160A"]="108 109 110 111 112" 
 ["DAQ-000909250959131E"]="108 109 110 111 112" 
 ["DAQ-00090611004E2A11"]="104 105 106 107 108" 
