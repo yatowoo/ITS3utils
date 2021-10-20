@@ -1,7 +1,7 @@
 {
 "general":{
   "title": "dry-run_refs",
-  "eudaq": "/home/llautner/eudaq2/",
+  "eudaq": "/home/pi/eudaq2/",
   "thr_scan": "../uITS3g2_0V_scan.csv",
   "ithr_conf": [60],
   "thr_conf": [10],
@@ -33,7 +33,7 @@
 },
 "DataCollector.dc": {
   "EUDAQ_FW": "native",
-  "EUDAQ_FW_PATTERN": "/media/T7/PS202110/dry-run/run$3R_$12D$X"
+  "EUDAQ_FW_PATTERN": "/media/T7/PS202110/align/run$3R_$12D$X"
 },
 "CHIPS":{
   "REF9":{"EUDAQ_ID":9, "name":"Producer.ALPIDE_plane_9", "DAQ":"DAQ-00090611004E160A", "VCASN":109, "VCASN2":121},

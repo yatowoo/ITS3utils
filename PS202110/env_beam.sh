@@ -20,7 +20,5 @@ alias srun='./ITS3start.sh && tmux a -t ITS3'
 alias crun='tmux a -t ITS3'
 alias krun='tmux kill-session -t ITS3'
 
-REPO_BASEDIR=$(dirname "$0")
-source $REPO_BASEDIR/power.sh
-source $REPO_BASEDIR/trigger_beam.sh
-unset REPO_BASEDIR
+source power.sh
+source trigger_beam.sh
