@@ -1,5 +1,4 @@
 #!/bin/sh -
-
 export TRIGGER_PORT=/dev/serial/by-id/usb-CERN_ITS3_Trigger_Board_210512_1140-if01-port0 
 
 function trigger-init(){
@@ -22,14 +21,17 @@ alias trigmon-ext='trigger-mon xRxx'
 alias trigmon-veto='trigger-mon RxRL'
 alias trigmon-coin='trigger-mon RxRx'
 function trigger-ext(){
+  echo '[-] Trigger condition : trg2'
   ~/trigger/software/settrg.py -p $TRIGGER_PORT --trg='trg2&dt_trg>10000 &dt_veto>10000 & !bsy' --veto='ntrg>0'
   trigmon-ext
 }
 function trigger-veto(){
+  echo '[-] Trigger condition : trg1 AND trg3 AND !trg0'
   ~/trigger/software/settrg.py -p $TRIGGER_PORT --trg='trg1&trg3&!trg0&dt_trg>10000 &dt_veto>10000 & !bsy' --veto='ntrg>0'
   trigmon-veto
 }
 function trigger-coin(){
+  echo '[-] Trigger condition : trg1 AND trg3'
   ~/trigger/software/settrg.py -p $TRIGGER_PORT --trg='trg1&trg3&dt_trg>10000 &dt_veto>10000 & !bsy' --veto='ntrg>0'
   trigmon-coin
 }
