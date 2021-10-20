@@ -1,0 +1,44 @@
+{
+"general":{
+  "title": "dry-run_refs",
+  "eudaq": "/home/llautner/eudaq2/",
+  "thr_scan": "../uITS3g2_0V_scan.csv",
+  "ithr_conf": [60],
+  "thr_conf": [10],
+  "setup": ["REF4", "REF5", "REF6", "REF7"],
+  "Vbb": 3,
+  "ALPIDE": {
+    "fixedbusy": 8000,
+    "minspacing": 2400,
+    "EUDAQ_DC": "dc",
+    "EUDAQ_ID": 0,
+    "ITHR": 60,
+    "VCASN": 105,
+    "VCASN2": 117,
+    "VCLIP": 60,
+    "IDB": 29,
+    "STROBE_LENGTH": 400
+  }
+},
+"RunControl": {
+  "EUDAQ_CTRL_PRODUCER_LAST_START": "ALPIDE_plane_0",
+  "EUDAQ_CTRL_PRODUCER_FIRST_STOP": "ALPIDE_plane_0",
+  "NEVENTS": 300000
+},
+"Producer.POWER": {
+  "EUDAQ_DC": "dc"
+},
+"Producer.PTH": {
+  "EUDAQ_DC": "dc"
+},
+"DataCollector.dc": {
+  "EUDAQ_FW": "native",
+  "EUDAQ_FW_PATTERN": "/media/T7/PS202110/ce65/run$3R_$12D$X"
+},
+"CHIPS":{
+  "REF7":{"EUDAQ_ID":7, "name":"Producer.ALPIDE_plane_7", "DAQ":"DAQ-00090611004E2A11", "VCASN":106, "VCASN2":118},
+  "REF6":{"EUDAQ_ID":6, "name":"Producer.ALPIDE_plane_6", "DAQ":"DAQ-000904250114120A", "VCASN":106, "VCASN2":118},
+  "REF5":{"EUDAQ_ID":5, "name":"Producer.ALPIDE_plane_5", "DAQ":"DAQ-00090611004E150B", "VCASN":109, "VCASN2":121},
+  "REF4":{"EUDAQ_ID":4, "name":"Producer.ALPIDE_plane_4", "DAQ":"DAQ-00090611004E0B0D", "VCASN":106, "VCASN2":118}
+}
+}
