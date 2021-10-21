@@ -7,9 +7,9 @@ else
 fi
 
 export TRIGGER_PORT=/dev/serial/by-id/usb-CERN_ITS3_Trigger_Board_210512_1140-if01-port0
-export TRIGGER_DIR=~/trigger
+export TRIGGER_DIR=~/testbeam/trigger
 export DATA_DIR=/media/T7/PS202110
-export ALPIDE_DAQ_FW=~/alpide-daq-software/
+export ALPIDE_DAQ_FW=~/testbeam/
 
 alias ll='ls -l -h --group-directories-first'
 alias senv='vim ~/.bashrc'

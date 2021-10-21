@@ -13,7 +13,7 @@ function power-refs(){
 
 function power-usb(){
   python3 $HAMEG_CONTROL -p /dev/serial/by-id/usb-HAMEG_HAMEG_HO720_023516024-if00-port0 $@
-  echo "Description  :      CE65 HV       CE65 PWELL      APTS DAQ       USB hub "
+  echo "Description  :      CE65 HV       CE65 PWELL         -          USB hub "
 }
 
 function power-ce65(){
@@ -22,7 +22,7 @@ function power-ce65(){
 
 function power-apts(){
   python3 $HAMEG_CONTROL -p /dev/serial/by-id/usb-HAMEG_HAMEG_HO720_021028153-if00-port0 $@
-  echo "Description  :       B5 SUB         B5 PWELL        B2 SUB       B2 PWELL"
+  echo "Description  :    B5 SUB/PWELL    B2 SUB/PWELL   APTS/CE65 DAQ    B2 PWELL"
 }
 
 function power-dpts(){
