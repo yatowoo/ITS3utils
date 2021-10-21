@@ -10,6 +10,8 @@ public:
   static const int Y_MX_SIZE = 32; 
 public:
   bool Converting(eudaq::EventSPC rawev,eudaq::StdEventSP stdev,eudaq::ConfigSPC conf) const override;
+private:
+  void Dump(const std::vector<uint8_t> &data,size_t i) const;
 };
 
 // Definitions for stati members
@@ -18,6 +20,7 @@ const int CE65RawEvent2StdEventConverter::Y_MX_SIZE;
 
 #define REGISTER_CONVERTER(name) namespace{auto dummy##name=eudaq::Factory<eudaq::StdEventConverter>::Register<CE65RawEvent2StdEventConverter>(eudaq::cstr2hash(#name));}
 REGISTER_CONVERTER(CE65)
+REGISTER_CONVERTER(ce65_producer)
 
 //
 /** CE65Producer::RunLoop
@@ -53,4 +56,16 @@ bool CE65RawEvent2StdEventConverter::Converting(eudaq::EventSPC in,eudaq::StdEve
   out->AddPlane(plane);
 
   return true;
+}
+
+void CE65RawEvent2StdEventConverter::Dump(const std::vector<uint8_t> &data,size_t i) const {
+  char buf[100];
+  EUDAQ_WARN("Raw event dump:");
+  for (size_t j=0;j<data.size();++j) {
+    if (i==j)
+      sprintf(buf,"%06X: %02X <-- problem around here?",j,data[j]);
+    else 
+      sprintf(buf,"%06X: %02X",j,data[j]);
+    EUDAQ_WARN(buf);
+  }
 }

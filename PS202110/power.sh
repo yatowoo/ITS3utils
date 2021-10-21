@@ -22,7 +22,7 @@ function power-ce65(){
 
 function power-apts(){
   python3 $HAMEG_CONTROL -p /dev/serial/by-id/usb-HAMEG_HAMEG_HO720_021028153-if00-port0 $@
-  echo "Description  :    B5 SUB/PWELL    B2 SUB/PWELL   APTS/CE65 DAQ    B2 PWELL"
+  echo "Description  :    B5 SUB/PWELL    B2 SUB/PWELL   APTS/CE65 DAQ      -    "
 }
 
 function power-dpts(){
