@@ -1,7 +1,7 @@
 #!/bin/bash -
 
 # Env command for .bashrc :
-# cd ~/ITS3utils/PS202110;source env_beam_pcalice115.sh;cd $OLD;
+# cd ~/ITS3utils/PS202110;source env_beam_pcalice115.sh;cd $OLDPWD;
 # - Change ~/ITS3utils/ to local repo adress
 
 if [ -z $RUN_DIR ];then
@@ -25,7 +25,6 @@ alias gorun='cd $RUN_DIR'
 alias godata='cd $DATA_DIR'
 function srun(){
   if [ -z $@ ];then
-  do
     echo '[X] INIT file missing. Try ITS3.ini as default.'
     ./ITS3start.sh ITS3.ini && tmux a -t ITS3
   else

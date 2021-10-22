@@ -36,9 +36,8 @@ function trigger-coin(){
   trigmon-coin
 }
 
-function trigger-set(){
-  echo '[-] Trigger condition : trg1 AND trg3'
-  TRIG_CONDITION="$@"&"dt_trg>10000 &dt_veto>10000 & !bsy"
-  echo '---> Extend for full version : '$TRIG_CONDITION
-  $TRIGGER_DIR/software/settrg.py -p $TRIGGER_PORT --trg="'"$TRIG_CONDITION"'" --veto='ntrg>0'
+function trigger-test(){
+  echo '[-] Trigger condition : trg0 ONLY (for dry-run test)'
+  $TRIGGER_DIR/software/settrg.py -p $TRIGGER_PORT --trg='trg0' --veto='ntrg>0'
+  trigger-mon xxxR
 }
