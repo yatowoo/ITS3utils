@@ -1,4 +1,9 @@
 #!/bin/bash -
+
+# Env command for .bashrc :
+# cd ~/ITS3utils/PS202110;source env_beam_pcalice115.sh;cd $OLD;
+# - Change ~/ITS3utils/ to local repo adress
+
 if [ -z $RUN_DIR ];then
   echo '[x] RUN_DIR not found. Set to ~/eudaq2/user/ITS3/misc as default'
   export RUN_DIR=~/eudaq2/user/ITS3/misc
@@ -18,7 +23,15 @@ alias alpide-ls='alpide-daq-program --list'
 alias alpide-flash-all='alpide-daq-program --all --fx3 $ALPIDE_DAQ_FW/fx3.img --fpga $ALPIDE_DAQ_FW/fpga-v1.0.0.bit'
 alias gorun='cd $RUN_DIR'
 alias godata='cd $DATA_DIR'
-alias srun='./ITS3start.sh && tmux a -t ITS3'
+function srun(){
+  if [ -z $@ ];then
+  do
+    echo '[X] INIT file missing. Try ITS3.ini as default.'
+    ./ITS3start.sh ITS3.ini && tmux a -t ITS3
+  else
+    ./ITS3start.sh $@ && tmux a -t ITS3
+  fi
+}
 alias crun='tmux a -t ITS3'
 alias krun='tmux kill-session -t ITS3'
 
