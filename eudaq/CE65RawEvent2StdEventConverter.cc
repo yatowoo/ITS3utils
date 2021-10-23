@@ -63,9 +63,9 @@ void CE65RawEvent2StdEventConverter::Dump(const std::vector<uint8_t> &data,size_
   EUDAQ_WARN("Raw event dump:");
   for (size_t j=0;j<data.size();++j) {
     if (i==j)
-      sprintf(buf,"%06X: %02X <-- problem around here?",j,data[j]);
+      sprintf(buf,"%06X: %02X <-- problem around here?",(unsigned int)j,data[j]);
     else 
-      sprintf(buf,"%06X: %02X",j,data[j]);
+      sprintf(buf,"%06X: %02X",(unsigned int)j,data[j]);
     EUDAQ_WARN(buf);
   }
 }
