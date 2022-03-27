@@ -88,6 +88,21 @@ hSize = dirCluster.Get("clusterNeighborsSNR")
 hSize.GetXaxis().SetRangeUser(-10,10)
 DrawHist(hSize, "Cluster neighbors charge")
 
+hMap = dirCluster.Get("clusterSeed_Neighbors")
+DrawHist(hMap, "clusterSeed_Neighbors", "colz")
+
+hMap = dirCluster.Get("clusterSeed_NeighborsSNR")
+DrawHist(hMap, "clusterSeed_NeighborsSNR", "colz")
+
+hMap = dirCluster.Get("clusterSeed_NeighborsSum")
+DrawHist(hMap, "clusterSeed_NeighborsSum", "colz")
+
+hMap = dirCluster.Get("clusterSeed_Cluster")
+DrawHist(hMap, "clusterSeed_Cluster", "colz")
+
+hMap = dirCluster.Get("clusterSeedSNR_Cluster")
+DrawHist(hMap, "clusterSeedSNR_Cluster", "colz")
+
 c.Clear()
 hMap = dirAna.Get("clusterMapAssoc")
 hMap.Draw("colz")
