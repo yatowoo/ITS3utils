@@ -20,6 +20,13 @@ c = ROOT.TCanvas('cQA','Corry Performance Figures',1280, 800)
 c.SetMargin(0.15, 0.02, 0.15, 0.1)
 c.Draw()
 
+def DrawHist(htmp, title="", option=""):
+  c.Clear()
+  htmp.Draw(option)
+  if(title == ""):
+    title = htmp.GetTitle()
+  c.Print(args.print, "Title:"+title)
+
 PrintCover(c, args.print)
 
 corryHist = ROOT.TFile(args.file)
@@ -62,6 +69,24 @@ hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
 hSize.GetXaxis().SetRangeUser(-5000,5000)
 hSize.Draw()
 c.Print(args.print, "Title:Cluster neighbors charge")
+
+hSize = dirCluster.Get("clusterNeighborsChargeSum")
+hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
+hSize.GetXaxis().SetRangeUser(-5000,10000)
+DrawHist(hSize, "Cluster neighbors charge")
+
+hRatio = dirCluster.Get("clusterChargeRatio")
+hRatio.GetXaxis().SetRangeUser(0,10)
+DrawHist(hRatio, "Cluster charge ratio", "colz")
+
+hSize = dirCluster.Get("clusterSeedSNR")
+hSize.Rebin(int(0.5 / hSize.GetBinWidth(1)))
+hSize.GetXaxis().SetRangeUser(0,100)
+DrawHist(hSize, "Cluster neighbors charge")
+
+hSize = dirCluster.Get("clusterNeighborsSNR")
+hSize.GetXaxis().SetRangeUser(-10,10)
+DrawHist(hSize, "Cluster neighbors charge")
 
 c.Clear()
 hMap = dirAna.Get("clusterMapAssoc")
