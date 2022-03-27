@@ -15,8 +15,9 @@ from plot_util import *
 args.print = args.output.replace('.root','.pdf')
 
 ALICEStyle()
+ROOT.gStyle.SetOptTitle(1)
 c = ROOT.TCanvas('cQA','Corry Performance Figures',1280, 800)
-c.SetMargin(0.15, 0.02, 0.15, 0.02)
+c.SetMargin(0.15, 0.02, 0.15, 0.1)
 c.Draw()
 
 PrintCover(c, args.print)
@@ -42,16 +43,46 @@ hSize.Draw()
 c.Print(args.print, "Title:Cluster Size")
 
 c.Clear()
+hSize = dirCluster.Get("clusterCharge")
+hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
+hSize.GetXaxis().SetRangeUser(-1000,20000)
+hSize.Draw()
+c.Print(args.print, "Title:Cluster charge")
+
+c.Clear()
+hSize = dirCluster.Get("clusterSeedCharge")
+hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
+hSize.GetXaxis().SetRangeUser(0,10000)
+hSize.Draw()
+c.Print(args.print, "Title:Cluster seed charge")
+
+c.Clear()
+hSize = dirCluster.Get("clusterNeighborsCharge")
+hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
+hSize.GetXaxis().SetRangeUser(-5000,5000)
+hSize.Draw()
+c.Print(args.print, "Title:Cluster neighbors charge")
+
+c.Clear()
 hMap = dirAna.Get("clusterMapAssoc")
 hMap.Draw("colz")
 c.Print(args.print, "Title:Cluster Map (associated)")
 
 c.Clear()
 hSigX = dirAna.Get("global_residuals").Get("residualsX")
+hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
 hSigX.Fit("gaus","","",-50,50)
 hSigX.GetXaxis().SetRangeUser(-50,50)
 hSigX.Draw()
 c.Print(args.print, "Title:Tracking X")
+
+c.Clear()
+hSigX = dirAna.Get("global_residuals").Get("residualsY")
+hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
+hSigX.Fit("gaus","","",-50,50)
+hSigX.GetXaxis().SetRangeUser(-50,50)
+hSigX.Draw()
+c.Print(args.print, "Title:Tracking Y")
 
 
 PrintCover(c, args.print, isBack=True)
