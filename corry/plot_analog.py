@@ -16,6 +16,7 @@ args.print = args.output.replace('.root','.pdf')
 
 ALICEStyle()
 ROOT.gStyle.SetOptTitle(1)
+ROOT.gStyle.SetOptStat(1)
 c = ROOT.TCanvas('cQA','Corry Performance Figures',1280, 800)
 c.SetMargin(0.15, 0.02, 0.15, 0.1)
 c.Draw()
@@ -102,6 +103,18 @@ DrawHist(hMap, "clusterSeed_Cluster", "colz")
 
 hMap = dirCluster.Get("clusterSeedSNR_Cluster")
 DrawHist(hMap, "clusterSeedSNR_Cluster", "colz")
+
+hMap = dirCluster.Get("clusterChargeShape")
+hMap.GetXaxis().SetRangeUser(-5,5)
+DrawHist(hMap, "clusterChargeShape", "colz")
+
+hMap = dirCluster.Get("clusterChargeShapeSNR")
+hMap.GetXaxis().SetRangeUser(-5,5)
+DrawHist(hMap, "clusterChargeShapeSNR", "colz")
+
+hMap = dirCluster.Get("clusterChargeShapeRatio")
+hMap.GetXaxis().SetRangeUser(-5,5)
+DrawHist(hMap, "clusterChargeShapeRatio", "colz")
 
 c.Clear()
 hMap = dirAna.Get("clusterMapAssoc")
