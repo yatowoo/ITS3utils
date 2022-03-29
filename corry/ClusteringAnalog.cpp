@@ -11,14 +11,20 @@
 #include "ClusteringAnalog.h"
 #include "objects/Pixel.hpp"
 
+#include <TFile.h>
+
 using namespace corryvreckan;
 using namespace std;
 
 ClusteringAnalog::ClusteringAnalog(Configuration& config, std::shared_ptr<Detector> detector)
     : Module(config, detector), m_detector(detector) {
 
+    rejectByROI = config_.get<bool>("reject_by_roi", false);
+    windowSize = config_.get<int>("window_size", 3);
     thresholdSeed = config_.get<float>("threshold_seed");
+    thresholdSeedSNR = config_.get<float>("thresholdSNR_seed", thresholdSeed);
     thresholdNeighbour = config_.get<float>("threshold_neighbour");
+    thresholdNeighbourSNR = config_.get<float>("thresholdSNR_neighbour", thresholdNeighbour);
     // Digital option - by detector type
     digital_detectors_ = config_.getArray<std::string>("digital_detectors", {});
     isDigital = false;
@@ -45,6 +51,28 @@ ClusteringAnalog::ClusteringAnalog(Configuration& config, std::shared_ptr<Detect
         seedingType = SeedingMethod::multi;
     }
 
+    // Read calibration file
+    isCalibrated = false;
+    hSensorPedestal = nullptr;
+    hSensorNoise = nullptr;
+    if(m_detector->getConfiguration().has("calibration_file")) {
+        tmp = m_detector->getConfiguration().getText("calibration_file"); // Return absolute path
+        tmp = tmp.substr(1UL, tmp.size() - 2);                            // DEBUG: Remove double quotes around string
+        auto f = new TFile(tmp.c_str(), "READ");
+        if(f->IsOpen()) {
+            LOG(INFO) << "Calibration file found - " << tmp;
+            // DEBUG: CE65 generated from TAF, TODO: set hName in conf.
+            hSensorPedestal = dynamic_cast<TH2F*>(f->Get("hPedestalpl1")->Clone("sensorPedestal"));
+            hSensorNoise = dynamic_cast<TH2F*>(f->Get("hnoisepl1")->Clone("sensorNoise"));
+            hSensorPedestal->SetDirectory(nullptr);
+            hSensorNoise->SetDirectory(nullptr);
+            f->Close();
+            isCalibrated = true;
+        } else {
+            LOG(WARNING) << "Calibration file NOT FOUND - " << tmp;
+        }
+    }
+
     resetDigital();
 }
 
@@ -56,9 +84,12 @@ void ClusteringAnalog::resetDigital() {
             isDigital = true;
             // For ALPIDE, pixel amp. value is 1
             thresholdSeed = 0.5;
+            thresholdSeedSNR = 0.5; // unused
             thresholdNeighbour = 0.5;
+            thresholdNeighbourSNR = 0.5; // unused
             coordinates = EstimationMethod::cluster;
             seedingType = SeedingMethod::multi;
+            isCalibrated = false;
             break;
         }
     }
@@ -73,13 +104,56 @@ void ClusteringAnalog::initialize() {
     std::string title;
     title = m_detector->getName() + " Cluster size;cluster size;events";
     clusterSize = new TH1F("clusterSize", title.c_str(), 100, -0.5, 99.5);
-    title = m_detector->getName() + " Cluster charge;cluster charge;events";
-    clusterCharge = new TH1F("clusterCharge", title.c_str(), 1100, -99.5, 1000.5);
-    title = m_detector->getName() + " Cluster seed charge;cluster seed charge;events";
-    clusterSeedCharge = new TH1F("clusterSeedCharge", title.c_str(), 1100, -99.5, 1000.5);
-    title = m_detector->getName() + " Cluster 3x3 charge;cluster 3x3 charge;events";
-    cluster3x3Charge = new TH1F("cluster3x3Charge", title.c_str(), 1100, -99.5, 1000.5);
+    title = m_detector->getName() + " Cluster charge;cluster charge (ADCu);events";
+    clusterCharge = new TH1F("clusterCharge", title.c_str(), 2500, -4999.5, 20000.5);
+    title = m_detector->getName() + " Cluster seed charge;cluster seed charge (ADCu);events";
+    clusterSeedCharge = new TH1F("clusterSeedCharge", title.c_str(), 2100, -999.5, 20000.5);
+    title = m_detector->getName() + " Cluster 3x3 charge;cluster 3x3 charge (ADCu);events";
+    cluster3x3Charge = new TH1F("cluster3x3Charge", title.c_str(), 2100, -999.5, 20000.5);
 
+    title = m_detector->getName() + " Cluster neighbors charge;Neighbors/pixel charge (ADCu);#clusters";
+    clusterNeighborsCharge = new TH1F("clusterNeighborsCharge", title.c_str(), 2000, -9999.5, 10000.5);
+    title = m_detector->getName() + " Sum of Cluster neighbors charge;Charge outside seed (ADCu);#pixels";
+    clusterNeighborsChargeSum = new TH1F("clusterNeighborsChargeSum", title.c_str(), 2000, -9999.5, 10000.5);
+
+    title = m_detector->getName() + " Cluster total charge ratio in N pixels;# pixel;charge ratio;events";
+    clusterChargeRatio = new TH2F("clusterChargeRatio",
+                                  title.c_str(),
+                                  30,
+                                  0.5,
+                                  30.5, // N pixels
+                                  130,
+                                  -0.1,
+                                  1.2); // charge ratio
+
+    title = m_detector->getName() + " Cluster seed S/N;S/N ratio;events";
+    clusterSeedSNR = new TH1F("clusterSeedSNR", title.c_str(), 1000, -0.5, 99.5);
+    title = m_detector->getName() + " Cluster neighbor S/N;S/N ratio;events";
+    clusterNeighborsSNR = new TH1F("clusterNeighborsSNR", title.c_str(), 300, -10.5, 20.5);
+
+    // Seeding - 2D correlation
+    title = m_detector->getName() + " Seed charge vs neighbors;seed charge (ADCu);neighbors charge (ADCu);events";
+    clusterSeed_Neighbors = new TH2F("clusterSeed_Neighbors", title.c_str(), 110, -999.5, 10000.5, 200, -9999.5, 10000.5);
+    title = m_detector->getName() + " Seed SNR vs neighbors;seed S/N;neighbors S/N;events";
+    clusterSeed_NeighborsSNR = new TH2F("clusterSeed_NeighborsSNR", title.c_str(), 1000, -0.5, 99.5, 300, -10.5, 20.5);
+    title = m_detector->getName() + " Seed charge vs sum of neighbors;seed charge (ADCu);charge outside seed (ADCu);events";
+    clusterSeed_NeighborsSum =
+        new TH2F("clusterSeed_NeighborsSum", title.c_str(), 110, -999.5, 10000.5, 200, -9999.5, 10000.5);
+    title = m_detector->getName() + " Seed charge vs cluster;seed charge (ADCu);cluster charge (ADCu);events";
+    clusterSeed_Cluster = new TH2F("clusterSeed_Cluster", title.c_str(), 110, -999.5, 10000.5, 210, -999.5, 20000.5);
+    title = m_detector->getName() + " Seed SNR vs cluster charge;seed S/N;cluster charge (ADCu);events";
+    clusterSeedSNR_Cluster = new TH2F("clusterSeedSNR_Cluster", title.c_str(), 1000, -0.5, 99.5, 210, -999.5, 20000.5);
+
+    // Cluster shape (charge distribution in window)
+    title = m_detector->getName() + " Cluster charge distribution;pixel no.;pixel charge (ADCu);events";
+    clusterChargeShape = new TH2F("clusterChargeShape", title.c_str(), 30, -14.5, 15.5, 200, -9999.5, 10000.5);
+    title = m_detector->getName() + " Cluster charge distribution by S/N ratio;pixel no.;pixel S/N;events";
+    clusterChargeShapeSNR = new TH2F("clusterChargeShapeSNR", title.c_str(), 30, -14.5, 15.5, 1100, -10.5, 99.5);
+    title = m_detector->getName() + " Cluster charge distribution by ratio;pixel no.;pixel charge ratio;events";
+    clusterChargeShapeRatio =
+        new TH2F("clusterChargeShapeRatio", title.c_str(), 30, -14.5, 15.5, 240, -1.2, 1.2); // charge ratio
+
+    // Cluster (central)
     title = m_detector->getName() + " Cluster size (central);cluster size;events";
     clusterSizeCentral = new TH1F("clusterSizeCentral", title.c_str(), 100, -0.5, 99.5);
     title = m_detector->getName() + " Cluster charge (central);cluster charge;events";
@@ -127,6 +201,89 @@ void ClusteringAnalog::initialize() {
                                         m_detector->nPixels().Y() - 0.5);
 }
 
+float ClusteringAnalog::SNR(const std::shared_ptr<Pixel>& px) {
+    if(!isCalibrated) {
+        LOG(WARNING) << "Calibration file NOT initialized - return raw charge of (" << px->column() << "," << px->row()
+                     << ")";
+        return float(px->charge());
+    }
+    double pNoise = hSensorNoise->GetBinContent(px->column() + 1, px->row() + 1);
+    if(pNoise > 0.)
+        return float(px->charge() / pNoise);
+    else {
+        LOG(WARNING) << "Invalid noise value <" << pNoise << "> - return raw charge of (" << px->column() << "," << px->row()
+                     << ")";
+        return float(px->charge());
+    }
+}
+
+bool ClusteringAnalog::findSeed(const std::shared_ptr<Pixel>& px) {
+    if(isCalibrated)
+        return (SNR(px) > thresholdSeedSNR);
+    else
+        return (px->charge() > thresholdSeed);
+}
+
+bool ClusteringAnalog::findNeighbor(const std::shared_ptr<Pixel>& px) {
+    if(isCalibrated)
+        return (SNR(px) > thresholdNeighbourSNR);
+    else
+        return (px->charge() > thresholdSeedSNR);
+}
+
+// Fill analog clusters - SNR,
+void ClusteringAnalog::fillAnalog(const std::shared_ptr<Cluster>& cluster,
+                                  const std::shared_ptr<Pixel>& seed,
+                                  const PixelVector& neighbors) {
+    clusterSeed_Cluster->Fill(seed->charge(), cluster->charge());
+    clusterChargeShape->Fill(0., seed->charge());
+    if(isCalibrated) {
+        clusterSeedSNR->Fill(SNR(seed));
+        clusterSeedSNR_Cluster->Fill(SNR(seed), cluster->charge());
+        clusterChargeShapeSNR->Fill(0., SNR(seed));
+    }
+
+    double neighborsChargeSum = cluster->charge() - seed->charge();
+    clusterNeighborsChargeSum->Fill(neighborsChargeSum);
+    clusterSeed_NeighborsSum->Fill(seed->charge(), neighborsChargeSum);
+
+    std::vector<double> chargeVals = {seed->charge()}; // pre-fill for sorting
+    double chargeMax = seed->charge();
+    for(auto px : neighbors) {
+        double val = px->charge();
+        if(isCalibrated) {
+            clusterNeighborsSNR->Fill(SNR(px));
+            clusterSeed_NeighborsSNR->Fill(SNR(seed), SNR(px));
+        }
+        clusterNeighborsCharge->Fill(val);
+        clusterSeed_Neighbors->Fill(seed->charge(), val);
+        chargeVals.push_back(val);
+        if(val > 0)
+            chargeMax += val;
+    }
+
+    // Fill cluster shape
+    clusterChargeShapeRatio->Fill(0., seed->charge() / chargeMax);
+    for(auto px : neighbors) {
+        // Define index in seeding window
+        int index = windowSize * (px->row() - seed->row()) + px->column() - seed->column();
+        clusterChargeShape->Fill(index, px->charge());
+        if(isCalibrated)
+            clusterChargeShapeSNR->Fill(index, SNR(px));
+        clusterChargeShapeRatio->Fill(index, px->charge() / chargeMax);
+    }
+
+    // Fill charge ratio by sorted charge
+    double chargeRatio = 0.;
+    int counter = 0;
+    // sort neighbor pixels by charge (large first to count)
+    std::sort(chargeVals.begin(), chargeVals.end(), greater<double>());
+    for(auto val : chargeVals) {
+        chargeRatio += val / chargeMax;
+        clusterChargeRatio->Fill(++counter, chargeRatio);
+    }
+}
+
 StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
 
     // Get the pixels
@@ -152,7 +309,7 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
         // Pre-fill the hitmap with pixels
         hitmap[pixel->column()][pixel->row()] = pixel;
         // Select seeds by threshold
-        if(pixel->charge() > thresholdSeed) {
+        if(findSeed(pixel)) {
             switch(seedingType) {
             case SeedingMethod::max:
                 if(seedCandidates.empty() || pixel->charge() > seedCandidates[0]->charge()) {
@@ -190,7 +347,6 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
         while(addedPixel) { // flag used for touching method
             addedPixel = false;
 
-            int windowSize = 3; // TODO: param for cluster window/matrix 3x3 or 5x5
             int seedToEdge = isDigital ? 1 : (windowSize - 1) / 2;
             for(int col = max(pxCenter->column() - seedToEdge, 0); col <= min(pxCenter->column() + seedToEdge, nCols - 1);
                 col++) {
@@ -200,7 +356,7 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
                     if(!pixel || used[pixel])
                         continue; // No pixel or already in other cluster
 
-                    if(pixel->charge() > thresholdNeighbour) {
+                    if(findNeighbor(pixel)) {
                         cluster->addPixel(&*pixel);
                         used[pixel] = true;
                         neighbors.push_back(pixel);
@@ -223,7 +379,6 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
             } else
                 break; // make sure to end loop
         }              // Loop - connecting all neighbors
-        neighbors.clear();
 
         // Finalise the cluster and save it
         switch(coordinates) {
@@ -248,6 +403,13 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
             calculateClusterCentre(cluster.get());
             break;
         }
+
+        // check if the cluster is within ROI
+        if(rejectByROI && !m_detector->isWithinROI(cluster.get())) {
+            LOG(DEBUG) << "Rejecting cluster outside of " << m_detector->getName() << " ROI";
+            continue;
+        }
+
         // Set uncertainty on position from intrinstic detector spatial resolution:
         cluster->setError(m_detector->getSpatialResolution());
 
@@ -273,6 +435,10 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
         clusterCharge->Fill(cluster->charge());
         clusterSeedCharge->Fill(seed->charge());
         cluster3x3Charge->Fill(chargeTotal);
+
+        if(!isDigital)
+            fillAnalog(cluster, seed, neighbors);
+        neighbors.clear();
 
         // ROI?
         if(seed->column() > 0 && seed->row() > 0 && seed->column() < nRows - 1 && seed->row() < nCols - 1) {

@@ -38,6 +38,14 @@ namespace corryvreckan {
 
         void calculateClusterCentre(Cluster*);
 
+        float SNR(const std::shared_ptr<Pixel>& px); // Signal/Noise ratio
+        bool findSeed(const std::shared_ptr<Pixel>& px);
+        bool findNeighbor(const std::shared_ptr<Pixel>& px);
+
+        void fillAnalog(const std::shared_ptr<Cluster>& cluster,
+                        const std::shared_ptr<Pixel>& seed,
+                        const PixelVector& neighbors);
+
     private:
         enum class EstimationMethod {
             seed,
@@ -57,6 +65,24 @@ namespace corryvreckan {
         TH1F* clusterSeedCharge;
         TH1F* clusterCharge;
         TH1F* cluster3x3Charge;
+        TH1F* clusterNeighborsCharge;
+        TH1F* clusterNeighborsChargeSum;
+        TH2F* clusterChargeRatio;
+
+        TH1F* clusterSeedSNR;
+        TH1F* clusterNeighborsSNR;
+
+        // Seeding - 2D correlation
+        TH2F* clusterSeed_Neighbors;
+        TH2F* clusterSeed_NeighborsSNR;
+        TH2F* clusterSeed_NeighborsSum;
+        TH2F* clusterSeed_Cluster;
+        TH2F* clusterSeedSNR_Cluster;
+
+        // Cluster shape (charge distribution)
+        TH2F* clusterChargeShape;
+        TH2F* clusterChargeShapeSNR;
+        TH2F* clusterChargeShapeRatio;
 
         TH1F* clusterSizeCentral;
         TH1F* clusterSeedChargeCentral;
@@ -69,11 +95,24 @@ namespace corryvreckan {
         TH2F* clusterSeedPositionGlobal;
         TH2F* clusterSeedPositionLocal;
 
+        bool rejectByROI;
+
+        // Threshold - raw value (ADC unit, TOT, ...)
         float thresholdSeed;
         float thresholdNeighbour;
-        std::vector<std::string> digital_detectors_;
 
+        std::vector<std::string> digital_detectors_;
         bool isDigital;
+
+        int windowSize; // Cluster matrix to search neighbors
+
+        // Threshold - Signal/Noise ratio (require calibration)
+        float thresholdSeedSNR;
+        float thresholdNeighbourSNR;
+        // Calibration file
+        TH2F* hSensorPedestal;
+        TH2F* hSensorNoise;
+        bool isCalibrated;
     };
 } // namespace corryvreckan
 #endif // ClusteringAnalog_H
