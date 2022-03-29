@@ -22,26 +22,36 @@ c = ROOT.TCanvas('cQA','Corry Performance Figures',2560, 1440)
 c.SetMargin(0.15, 0.02, 0.15, 0.1)
 c.Draw()
 
-c.Clear()
-c.Divide(4,4)
+# Sub-pads
+subPadNX = 4
+subPadNY = 3
 global padIndex
 padIndex = 0
 
-def DrawHist(htmp, title="", option="", optStat=True):
-  ROOT.gStyle.SetOptStat(optStat)
+#TODO: create class Painter to integrate function and vars
+def NextPad(title=""):
   global padIndex
-  padIndex = padIndex + 1
-  c.cd(padIndex)
-  print("[+] DEBUG - Pad " + str(padIndex))
-  htmp.Draw(option)
-  if(title == ""):
-    title = htmp.GetTitle()
-  if(padIndex == 16):
+  if(padIndex == subPadNX * subPadNY):
     c.Print(args.print, "Title:"+title)
     c.Clear()
-    padIndex = 0
+    c.Divide(subPadNX, subPadNY)
+    padIndex = 1
+  else:
+    padIndex = padIndex + 1
+  c.cd(padIndex)
+# Draw and print canvas
+def DrawHist(htmp, title="", option="", optStat=True, samePad=False):
+  ROOT.gStyle.SetOptStat(optStat)
+  if(title == ""):
+    title = htmp.GetTitle()
+  if(not samePad):
+    NextPad(title)
+  print("[+] DEBUG - Pad " + str(padIndex) + ' : ' + htmp.GetName()) 
+  htmp.Draw(option)
 
 PrintCover(c, args.print)
+
+c.Divide(subPadNX, subPadNY) # Divide again after canvas.Clear
 
 corryHist = ROOT.TFile(args.file)
 
@@ -129,15 +139,17 @@ DrawHist(hMap, "clusterSize", "colz")
 
 hSigX = dirAna.Get("global_residuals").Get("residualsX")
 hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
+NextPad()
 hSigX.Fit("gaus","","",-50,50)
 hSigX.GetXaxis().SetRangeUser(-50,50)
-DrawHist(hSigX, "clusterSize")
+DrawHist(hSigX, "clusterSize", samePad=True)
 
 hSigX = dirAna.Get("global_residuals").Get("residualsY")
 hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
+NextPad()
 hSigX.Fit("gaus","","",-50,50)
 hSigX.GetXaxis().SetRangeUser(-50,50)
-DrawHist(hSigX, "clusterSize")
+DrawHist(hSigX, "clusterSize", samePad=True)
 
 c.Print(args.print, "Title:last")
 
