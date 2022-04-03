@@ -29,15 +29,17 @@ global padIndex
 padIndex = 0
 
 #TODO: create class Painter to integrate function and vars
+def NextPage(title=""):
+  global padIndex
+  padIndex = 0
+  c.Print(args.print, f"Title:{title}")
+  c.Clear()
+  c.Divide(subPadNX, subPadNY)
 def NextPad(title=""):
   global padIndex
   if(padIndex == subPadNX * subPadNY):
-    c.Print(args.print, "Title:"+title)
-    c.Clear()
-    c.Divide(subPadNX, subPadNY)
-    padIndex = 1
-  else:
-    padIndex = padIndex + 1
+    NextPage(title)
+  padIndex = padIndex + 1
   c.cd(padIndex)
 # Draw and print canvas
 def DrawHist(htmp, title="", option="", optStat=True, samePad=False):
@@ -55,12 +57,16 @@ c.Divide(subPadNX, subPadNY) # Divide again after canvas.Clear
 
 corryHist = ROOT.TFile(args.file)
 
+eventModule = "EventLoaderEUDAQ2"
+clusterALPIDEModule = "ClusteringSpatial"
 clusterModule = "ClusteringAnalog"
+corrModule = "Correlations"
 analysisModule = "AnalysisDUT"
+trackingModule = "Tracking4D"
+alignDUTModule = "AlignmentDUTResidual"
 detector = "CE65_4"
 
 dirCluster = corryHist.Get(clusterModule).Get(detector)
-dirAna = corryHist.Get(analysisModule).Get(detector)
 
 hMap = dirCluster.Get("clusterPositionLocal")
 DrawHist(hMap, "Cluster neighbours charge","colz")
@@ -132,26 +138,63 @@ DrawHist(hMap, "clusterChargeShapeSNR", "colz", False)
 
 hMap = dirCluster.Get("clusterChargeShapeRatio")
 hMap.GetXaxis().SetRangeUser(-5,5)
+hMap.GetYaxis().SetRangeUser(-0.5,1.1)
+hPx = hMap.ProfileX()
+hPx.SetLineColor(ROOT.kRed)
+hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
+hPx.SetMarkerColor(ROOT.kRed)
+hPx.SetLineWidth(1)
 DrawHist(hMap, "clusterChargeShapeRatio", "colz", False)
+hPx.Draw("same")
 
-hMap = dirAna.Get("clusterMapAssoc")
-DrawHist(hMap, "clusterSize", "colz")
+NextPage("cluster"+detector)
 
-hSigX = dirAna.Get("global_residuals").Get("residualsX")
-hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
-NextPad()
-hSigX.Fit("gaus","","",-50,50)
-hSigX.GetXaxis().SetRangeUser(-50,50)
-DrawHist(hSigX, "clusterSize", samePad=True)
+def DrawAnalysisDUT(dirAna):
+  hMap = dirAna.Get("clusterMapAssoc")
+  DrawHist(hMap, "clusterSize", "colz")
+  # residualsX
+  hSigX = dirAna.Get("global_residuals").Get("residualsX")
+  hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
+  NextPad()
+  hSigX.Fit("gaus","","",-50,50)
+  hSigX.GetXaxis().SetRangeUser(-50,50)
+  DrawHist(hSigX, "clusterSize", samePad=True)
+  # residualsY
+  hSigX = dirAna.Get("global_residuals").Get("residualsY")
+  hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
+  NextPad()
+  hSigX.Fit("gaus","","",-50,50)
+  hSigX.GetXaxis().SetRangeUser(-50,50)
+  DrawHist(hSigX, "clusterSize", samePad=True)
+  # Output
+  NextPage("AnalysisDUT")
+  return None
 
-hSigX = dirAna.Get("global_residuals").Get("residualsY")
-hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
-NextPad()
-hSigX.Fit("gaus","","",-50,50)
-hSigX.GetXaxis().SetRangeUser(-50,50)
-DrawHist(hSigX, "clusterSize", samePad=True)
+dirTmp = corryHist.Get(analysisModule)
+if(dirTmp != None):
+  DrawAnalysisDUT(dirTmp.Get(detector))
 
-c.Print(args.print, "Title:last")
+def DrawAlignmentDUT(dirAlign):
+  # Residual X
+  hSigX = dirAlign.Get("residualsX")
+  hSigX.Rebin(int(1. / hSigX.GetBinWidth(1))) #um
+  NextPad()
+  hSigX.Fit("gaus","","",-20,20)
+  hSigX.GetXaxis().SetRangeUser(-50,50)
+  DrawHist(hSigX, "residualsX", samePad=True)
+  # Residual Y
+  hSigX = dirAlign.Get("residualsY")
+  hSigX.Rebin(int(1. / hSigX.GetBinWidth(1))) #um
+  NextPad()
+  hSigX.Fit("gaus","","",-20,20)
+  hSigX.GetXaxis().SetRangeUser(-50,50)
+  DrawHist(hSigX, "residualsY", samePad=True)
+  NextPage("AlignmentDUTResidual")
+  return None
+
+dirTmp = corryHist.Get(alignDUTModule)
+if(dirTmp != None):
+  DrawAlignmentDUT(dirTmp.Get(detector))
 
 PrintCover(c, args.print, isBack=True)
 corryHist.Close()
