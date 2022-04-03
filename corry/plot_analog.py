@@ -15,11 +15,12 @@ from plot_util import *
 args.print = args.output.replace('.root','.pdf')
 
 ALICEStyle()
+ROOT.gStyle.SetLineWidth(1)
 ROOT.gStyle.SetOptTitle(1)
 ROOT.gStyle.SetOptStat(1)
 global c
 c = ROOT.TCanvas('cQA','Corry Performance Figures',2560, 1440)
-c.SetMargin(0.15, 0.02, 0.15, 0.1)
+c.SetMargin(0.15, 0.1, 0.15, 0.1)
 c.Draw()
 
 # Sub-pads
@@ -27,20 +28,25 @@ subPadNX = 4
 subPadNY = 3
 global padIndex
 padIndex = 0
+pageName = "Start"
 
 #TODO: create class Painter to integrate function and vars
 def NextPage(title=""):
+  global pageName
   global padIndex
   padIndex = 0
+  if(title == ""):
+    title = pageName
   c.Print(args.print, f"Title:{title}")
   c.Clear()
   c.Divide(subPadNX, subPadNY)
 def NextPad(title=""):
   global padIndex
   if(padIndex == subPadNX * subPadNY):
-    NextPage(title)
+    NextPage()
   padIndex = padIndex + 1
   c.cd(padIndex)
+  ROOT.gPad.SetMargin(0.15, 0.02, 0.15, 0.1)
 # Draw and print canvas
 def DrawHist(htmp, title="", option="", optStat=True, samePad=False):
   ROOT.gStyle.SetOptStat(optStat)
@@ -66,90 +72,101 @@ trackingModule = "Tracking4D"
 alignDUTModule = "AlignmentDUTResidual"
 detector = "CE65_4"
 
-dirCluster = corryHist.Get(clusterModule).Get(detector)
+def DrawClusteringAnalog(dirCluster):
+  # Init
+  global pageName
+  pageName = f"ClusteringAnalog - {detector}"
+  # Drawing
+  hMap = dirCluster.Get("clusterPositionLocal")
+  DrawHist(hMap, "Cluster neighbours charge","colz")
 
-hMap = dirCluster.Get("clusterPositionLocal")
-DrawHist(hMap, "Cluster neighbours charge","colz")
+  hSize = dirCluster.Get("clusterSize")
+  hSize.GetXaxis().SetRangeUser(0,30)
+  DrawHist(hSize, "clusterSize")
 
-hSize = dirCluster.Get("clusterSize")
-hSize.GetXaxis().SetRangeUser(0,30)
-DrawHist(hSize, "clusterSize")
+  hSize = dirCluster.Get("clusterCharge")
+  hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
+  hSize.GetXaxis().SetRangeUser(-5000,20000)
+  DrawHist(hSize, "clusterSize")
 
-hSize = dirCluster.Get("clusterCharge")
-hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-hSize.GetXaxis().SetRangeUser(-5000,20000)
-DrawHist(hSize, "clusterSize")
+  hSize = dirCluster.Get("clusterSeedCharge")
+  hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
+  hSize.GetXaxis().SetRangeUser(0,12000)
+  DrawHist(hSize, "clusterSize")
 
+  hSize = dirCluster.Get("clusterNeighboursCharge")
+  hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
+  hSize.GetXaxis().SetRangeUser(-5000,5000)
+  DrawHist(hSize, "clusterSize")
 
-hSize = dirCluster.Get("clusterSeedCharge")
-hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-hSize.GetXaxis().SetRangeUser(0,12000)
-DrawHist(hSize, "clusterSize")
+  hSize = dirCluster.Get("clusterNeighboursChargeSum")
+  hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
+  hSize.GetXaxis().SetRangeUser(-5000,10000)
+  DrawHist(hSize, "Cluster neighbours charge")
 
-hSize = dirCluster.Get("clusterNeighboursCharge")
-hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-hSize.GetXaxis().SetRangeUser(-5000,5000)
-DrawHist(hSize, "clusterSize")
+  hRatio = dirCluster.Get("clusterChargeRatio")
+  hRatio.GetXaxis().SetRangeUser(0,10)
+  hRatio.GetYaxis().SetRangeUser(0,1.1)
+  DrawHist(hRatio, "Cluster charge ratio", "colz", False)
 
-hSize = dirCluster.Get("clusterNeighboursChargeSum")
-hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-hSize.GetXaxis().SetRangeUser(-5000,10000)
-DrawHist(hSize, "Cluster neighbours charge")
+  hSize = dirCluster.Get("clusterSeedSNR")
+  hSize.Rebin(int(0.5 / hSize.GetBinWidth(1)))
+  hSize.GetXaxis().SetRangeUser(0,100)
+  DrawHist(hSize, "clusterSeedSNR")
 
-hRatio = dirCluster.Get("clusterChargeRatio")
-hRatio.GetXaxis().SetRangeUser(0,10)
-hRatio.GetYaxis().SetRangeUser(0,1.1)
-DrawHist(hRatio, "Cluster charge ratio", "colz", False)
+  hSize = dirCluster.Get("clusterNeighboursSNR")
+  hSize.GetXaxis().SetRangeUser(-10,10)
+  DrawHist(hSize, "clusterNeighboursSNR")
 
-hSize = dirCluster.Get("clusterSeedSNR")
-hSize.Rebin(int(0.5 / hSize.GetBinWidth(1)))
-hSize.GetXaxis().SetRangeUser(0,100)
-DrawHist(hSize, "clusterSeedSNR")
+  hMap = dirCluster.Get("clusterSeed_Neighbours")
+  hMap.GetYaxis().SetRangeUser(-4000,10000)
+  DrawHist(hMap, "clusterSeed_Neighbours", "colz", False)
 
-hSize = dirCluster.Get("clusterNeighboursSNR")
-hSize.GetXaxis().SetRangeUser(-10,10)
-DrawHist(hSize, "clusterNeighboursSNR")
+  hMap = dirCluster.Get("clusterSeed_NeighboursSNR")
+  DrawHist(hMap, "clusterSeed_NeighboursSNR", "colz", False)
 
-hMap = dirCluster.Get("clusterSeed_Neighbours")
-hMap.GetYaxis().SetRangeUser(-4000,10000)
-DrawHist(hMap, "clusterSeed_Neighbours", "colz", False)
+  hMap = dirCluster.Get("clusterSeed_NeighboursSum")
+  hMap.GetYaxis().SetRangeUser(-4000,10000)
+  DrawHist(hMap, "clusterSeed_NeighboursSum", "colz", False)
 
-hMap = dirCluster.Get("clusterSeed_NeighboursSNR")
-DrawHist(hMap, "clusterSeed_NeighboursSNR", "colz", False)
+  hMap = dirCluster.Get("clusterSeed_Cluster")
+  hMap.GetYaxis().SetRangeUser(-4000,10000)
+  DrawHist(hMap, "clusterSeed_Cluster", "colz", False)
 
-hMap = dirCluster.Get("clusterSeed_NeighboursSum")
-hMap.GetYaxis().SetRangeUser(-4000,10000)
-DrawHist(hMap, "clusterSeed_NeighboursSum", "colz", False)
+  hMap = dirCluster.Get("clusterSeedSNR_Cluster")
+  DrawHist(hMap, "clusterSeedSNR_Cluster", "colz", False)
 
-hMap = dirCluster.Get("clusterSeed_Cluster")
-hMap.GetYaxis().SetRangeUser(-4000,10000)
-DrawHist(hMap, "clusterSeed_Cluster", "colz", False)
+  hMap = dirCluster.Get("clusterChargeShape")
+  hMap.GetXaxis().SetRangeUser(-5,5)
+  DrawHist(hMap, "clusterChargeShape", "colz", False)
 
-hMap = dirCluster.Get("clusterSeedSNR_Cluster")
-DrawHist(hMap, "clusterSeedSNR_Cluster", "colz", False)
+  hMap = dirCluster.Get("clusterChargeShapeSNR")
+  hMap.GetXaxis().SetRangeUser(-5,5)
+  DrawHist(hMap, "clusterChargeShapeSNR", "colz", False)
 
-hMap = dirCluster.Get("clusterChargeShape")
-hMap.GetXaxis().SetRangeUser(-5,5)
-DrawHist(hMap, "clusterChargeShape", "colz", False)
+  hMap = dirCluster.Get("clusterChargeShapeRatio")
+  hMap.GetXaxis().SetRangeUser(-5,5)
+  hMap.GetYaxis().SetRangeUser(-0.5,1.1)
+  hPx = hMap.ProfileX()
+  hPx.SetLineColor(ROOT.kRed)
+  hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
+  hPx.SetMarkerColor(ROOT.kRed)
+  hPx.SetLineWidth(1)
+  DrawHist(hMap, "clusterChargeShapeRatio", "colz", False)
+  hPx.Draw("same")
+  # Output
+  NextPage(pageName)
+  return None
 
-hMap = dirCluster.Get("clusterChargeShapeSNR")
-hMap.GetXaxis().SetRangeUser(-5,5)
-DrawHist(hMap, "clusterChargeShapeSNR", "colz", False)
-
-hMap = dirCluster.Get("clusterChargeShapeRatio")
-hMap.GetXaxis().SetRangeUser(-5,5)
-hMap.GetYaxis().SetRangeUser(-0.5,1.1)
-hPx = hMap.ProfileX()
-hPx.SetLineColor(ROOT.kRed)
-hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
-hPx.SetMarkerColor(ROOT.kRed)
-hPx.SetLineWidth(1)
-DrawHist(hMap, "clusterChargeShapeRatio", "colz", False)
-hPx.Draw("same")
-
-NextPage("cluster"+detector)
+dirTmp = corryHist.Get(clusterModule)
+if(dirTmp != None):
+  DrawClusteringAnalog(dirTmp.Get(detector))
 
 def DrawAnalysisDUT(dirAna):
+  # Init
+  global pageName
+  pageName = f"AnalysisDUT - {detector}"
+  # Drawing  
   hMap = dirAna.Get("clusterMapAssoc")
   DrawHist(hMap, "clusterSize", "colz")
   # residualsX
@@ -167,7 +184,7 @@ def DrawAnalysisDUT(dirAna):
   hSigX.GetXaxis().SetRangeUser(-50,50)
   DrawHist(hSigX, "clusterSize", samePad=True)
   # Output
-  NextPage("AnalysisDUT")
+  NextPage(pageName)
   return None
 
 dirTmp = corryHist.Get(analysisModule)
@@ -175,6 +192,16 @@ if(dirTmp != None):
   DrawAnalysisDUT(dirTmp.Get(detector))
 
 def DrawAlignmentDUT(dirAlign):
+  # Init
+  global pageName
+  pageName = f"AlignmentDUT - {detector}"
+  # Iterations
+  grIter = dirAlign.Get(f"alignment_correction_displacementX_{detector}")
+  grIter.SetTitle("Alignment correction on displacement - X")
+  DrawHist(grIter, "alignmentX")
+  grIter = dirAlign.Get(f"alignment_correction_displacementY_{detector}")
+  grIter.SetTitle("Alignment correction on displacement - Y")
+  DrawHist(grIter, "alignmentY")
   # Residual X
   hSigX = dirAlign.Get("residualsX")
   hSigX.Rebin(int(1. / hSigX.GetBinWidth(1))) #um
