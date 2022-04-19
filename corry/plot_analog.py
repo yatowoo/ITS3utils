@@ -6,6 +6,7 @@ parser = argparse.ArgumentParser(description='Post-processing script for corryvr
 parser.add_argument('-f', '--file',help='Output histogram from corry', default="analog-debug.root")
 parser.add_argument('-o', '--output',help='Output file path', default='cluster.root')
 parser.add_argument('-p', '--print',help='Print in PDF file', default='cluster.pdf')
+parser.add_argument('-d', '--detector',help='Print in PDF file', default='CE65_4')
 
 args = parser.parse_args()
 
@@ -79,13 +80,17 @@ class Painter:
     self.canvas.cd(self.padIndex)
     ROOT.gPad.SetMargin(0.15, 0.02, 0.15, 0.1)
   # Drawing - Histograms
-  def DrawHist(self, htmp, title="", option="", optStat=True, samePad=False):
+  def DrawHist(self, htmp, title="", option="", optStat=True, samePad=False, optLogY=False):
     ROOT.gStyle.SetOptStat(optStat)
     if(title == ""):
       title = htmp.GetTitle()
     if(not samePad):
       self.NextPad(title)
-    print("[+] DEBUG - Pad " + str(self.padIndex) + ' : ' + htmp.GetName()) 
+    print("[+] DEBUG - Pad " + str(self.padIndex) + ' : ' + htmp.GetName())
+    ROOT.gPad.SetLogy(optLogY)
+    if(option == "colz"):
+      zmax = htmp.GetBinContent(htmp.GetMaximumBin())
+      htmp.GetZaxis().SetRangeUser(0.0 * zmax, 1.1 * zmax)
     htmp.Draw(option)
 class CorryPainter(Painter):
   def __init__(self, canvas, printer, **kwargs):
@@ -107,7 +112,7 @@ corrModule = "Correlations"
 analysisModule = "AnalysisDUT"
 trackingModule = "Tracking4D"
 alignDUTModule = "AlignmentDUTResidual"
-detector = "CE65_4"
+detector = args.detector
 
 def DrawClusteringAnalog(self, dirCluster):
   # Init
@@ -118,27 +123,27 @@ def DrawClusteringAnalog(self, dirCluster):
 
   hSize = dirCluster.Get("clusterSize")
   hSize.GetXaxis().SetRangeUser(0,30)
-  self.DrawHist(hSize, "clusterSize")
+  self.DrawHist(hSize, "clusterSize", optLogY=True)
 
   hSize = dirCluster.Get("clusterCharge")
   hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
   hSize.GetXaxis().SetRangeUser(-5000,20000)
-  self.DrawHist(hSize, "clusterSize")
+  self.DrawHist(hSize, "clusterSize", optLogY=True)
 
   hSize = dirCluster.Get("clusterSeedCharge")
   hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
   hSize.GetXaxis().SetRangeUser(0,12000)
-  self.DrawHist(hSize, "clusterSize")
+  self.DrawHist(hSize, "clusterSize", optLogY=True)
 
   hSize = dirCluster.Get("clusterNeighboursCharge")
   hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
   hSize.GetXaxis().SetRangeUser(-5000,5000)
-  self.DrawHist(hSize, "clusterSize")
+  self.DrawHist(hSize, "clusterSize", optLogY=True)
 
   hSize = dirCluster.Get("clusterNeighboursChargeSum")
   hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
   hSize.GetXaxis().SetRangeUser(-5000,10000)
-  self.DrawHist(hSize, "Cluster neighbours charge")
+  self.DrawHist(hSize, "Cluster neighbours charge", optLogY=True)
 
   hRatio = dirCluster.Get("clusterChargeRatio")
   hRatio.GetXaxis().SetRangeUser(0,10)
@@ -183,7 +188,7 @@ def DrawClusteringAnalog(self, dirCluster):
   hMap = dirCluster.Get("clusterChargeShapeRatio")
   hMap.GetXaxis().SetRangeUser(-5,5)
   hMap.GetYaxis().SetRangeUser(-0.5,1.1)
-  hPx = hMap.ProfileX()
+  hPx = hMap.ProfileX() # TODO: Re-normalized with counts in seed
   hPx.SetLineColor(ROOT.kRed)
   hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
   hPx.SetMarkerColor(ROOT.kRed)
