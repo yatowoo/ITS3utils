@@ -5,7 +5,7 @@ import pyeudaq
 import mlr1daqboard
 import numpy as np
 from tqdm import tqdm
-from ROOT import TH2F
+from ROOT import TH2F, TFile
 
 parser=argparse.ArgumentParser(description='APTS data dumper')
 parser.add_argument('input',help='EUDAQ raw file')
@@ -23,9 +23,13 @@ fr=pyeudaq.FileReader('native',args.input)
 if(args.nev < 0):
     args.nev = 1e6 # Reset to default
 
-hTrigger = TH2F('h2trig','Sampling point vs pedestal;ADCu (Min. - Baseline);Frame. No.;#pixels', 1000, -0.5, 10000-0.5, 200, -0.5, 200-0.5)
+fRoot = TFile('h2trig.root','RECREATE')
+hTrigger = TH2F('h2trig','Sampling point vs pedestal;ADCu (Min. - Baseline);Frame. No.;#pixels', 1000, -1000.5, 9000-0.5, 200, -0.5, 200-0.5)
 hTrigger.SetDrawOption('colz')
-
+hTriggerConv = TH2F('h2trig_conv','Sampling point vs pedestal (min. frame of seed);ADCu (Min. - Baseline);Frame. No.;#pixels', 1000, -1000.5, 9000-0.5, 200, -0.5, 200-0.5)
+hTriggerConv.SetDrawOption('colz')
+hTriggerSeed = TH2F('h2trig_seed','Sampling point vs pedestal (seed);ADCu (Min. - Baseline);Frame. No.;#pixels', 1000, -1000.5, 9000-0.5, 200, -0.5, 200-0.5)
+hTriggerSeed.SetDrawOption('colz')
 # np.array - (4,4,nframes)
 NX, NY, N_FRAME= 4, 4, 200
 SIGNAL_CUT = 200
@@ -44,15 +48,24 @@ def signal(frdata):
 def eventCut(evdata):
     # ADCu = val - baseline [1st frame]
     eventPass = False
+    sigMax, frMax = 0, 0
     for ix in range(NX):
         for iy in range(NY):
             sigVal, sigFr = signal([int(x) for x in evdata[ix][iy]])
             hTrigger.Fill(sigVal, sigFr)
+            if(sigVal > sigMax):
+                sigMax = sigVal
+                frMax = sigFr
             if(sigVal > SIGNAL_CUT):
                 eventPass = True
                 # DEBUG
                 if(args.debug):
                     print(f'[+] Signal found : ({ix},{iy},{sigFr}) - ADC value = {sigVal}')
+    hTriggerSeed.Fill(sigMax,frMax)
+    for ix in range(NX):
+        for iy in range(NY):
+            chargeInConverter = -(evdata[ix][iy][frMax] - evdata[ix][iy][0])
+            hTriggerConv.Fill(chargeInConverter, frMax)
     return eventPass
 
 evds =[]
@@ -81,7 +94,17 @@ for iev in tqdm(range(args.nev)):
         
 if(args.dump):
     np.save(args.output,evds)
-hTrigger.SaveAs('h2trig.root')
+fRoot.cd()
+htmp = hTrigger.ProjectionX()
+htmp.Write()
+htmp = hTriggerConv.ProjectionX()
+htmp.Write()
+htmp = hTriggerSeed.ProjectionX()
+htmp.Write()
+hTrigger.Write()
+hTriggerConv.Write()
+hTriggerSeed.Write()
+fRoot.Close()
 exit()
 
 # TODO: what about the first event which seems to have one ADC extra

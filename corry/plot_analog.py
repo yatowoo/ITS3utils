@@ -148,7 +148,13 @@ def DrawClusteringAnalog(self, dirCluster):
   hRatio = dirCluster.Get("clusterChargeRatio")
   hRatio.GetXaxis().SetRangeUser(0,10)
   hRatio.GetYaxis().SetRangeUser(0,1.1)
+  hPx = hRatio.ProfileX()
+  hPx.SetLineColor(ROOT.kRed)
+  hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
+  hPx.SetMarkerColor(ROOT.kRed)
+  hPx.SetLineWidth(1)
   self.DrawHist(hRatio, "Cluster charge ratio", "colz", False)
+  hPx.Draw("same")
 
   hSize = dirCluster.Get("clusterSeedSNR")
   hSize.Rebin(int(0.5 / hSize.GetBinWidth(1)))
