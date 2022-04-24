@@ -27,14 +27,14 @@ def DrawFrame(frdata, norm=True):
   else:
     plt.plot(range(200),frdata)
 
-# TODO: Use enum/bitmap instead
-checkBaselineReference = False
-checkOverflow = False
-checkSeedOnly = False
+PLOT_SELECTION = 0b111000
+checkBaselineReference = (1<<0)
+checkOverflow = (1<<1)
+checkSeedOnly = (1<<2)
 
-checkCluster = True
-checkChargeSharing = True
-checkClusterSampling  =True
+checkCluster = (1<<3)
+checkChargeSharing = (1<<4)
+checkClusterSampling  = (1<<5)
 
 for ev in tqdm(evdata):
     # Find max. pixel
@@ -48,17 +48,18 @@ for ev in tqdm(evdata):
           sigVal, sigFr = signal(frdata)
           if(sigVal > SIGNAL_CUT):
             nFiredPixel += 1
-            if(checkBaselineReference and sigFr < BASELINE_REF):
+            if(PLOT_SELECTION & checkBaselineReference
+             and sigFr < BASELINE_REF):
               DrawFrame(frdata)
           if(sigVal > maxSignal):
             maxSignal, maxFrame = sigVal, sigFr
             seedX, seedY = ix, iy
             frMax = frdata
-          if(checkOverflow and sigVal > SIGNAL_MAX):
+          if(PLOT_SELECTION & checkOverflow and sigVal > SIGNAL_MAX):
             DrawFrame(frdata, norm=False)
-    if(checkSeedOnly):
+    if(PLOT_SELECTION & checkSeedOnly):
       DrawFrame(frMax)
-    if(checkCluster):
+    if(PLOT_SELECTION & checkCluster):
       samplingPoints = []
       for ix in range(NX):
           for iy in range(NY):
@@ -67,11 +68,11 @@ for ev in tqdm(evdata):
             if(sigVal > SIGNAL_CUT):
               samplingPoints.append(sigFr)
             DrawFrame(frdata)
-      if(checkChargeSharing and nFiredPixel < 2):
+      if(PLOT_SELECTION & checkChargeSharing and nFiredPixel < 2):
         plt.clf()
         continue
       samplingSync = (sum([abs(x-maxFrame) for x in samplingPoints]) == 0)
-      if(checkClusterSampling and samplingSync):
+      if(PLOT_SELECTION & checkClusterSampling and samplingSync):
         plt.clf()
         continue
       else:
