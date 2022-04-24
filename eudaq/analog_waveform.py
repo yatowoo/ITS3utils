@@ -19,22 +19,50 @@ def signal(frdata):
     return (val, np.argmin(frdata))
 
 plt.figure(1)
-plt.title('APTS signal readout')
-def DrawFrame(frdata, norm=True):
-  baseline = int(frdata[0])
-  if(norm):
-    plt.plot(range(200),[int(x)-baseline for x in frdata])
-  else:
-    plt.plot(range(200),frdata)
+plt.plot(range(200))
+plt.show(block=False)
+plt.clf()
 
-PLOT_SELECTION = 0b111000
 checkBaselineReference = (1<<0)
 checkOverflow = (1<<1)
 checkSeedOnly = (1<<2)
 
 checkCluster = (1<<3)
-checkChargeSharing = (1<<4)
-checkClusterSampling  = (1<<5)
+checkChargeSharing = (1<<4) | checkCluster
+checkClusterSampling  = (1<<5) | checkChargeSharing
+
+plotSingle = (1<<6)
+
+#PLOT_SELECTION = 0b111000
+PLOT_SELECTION = checkBaselineReference | plotSingle
+
+saveFigIndex = 0
+def UpdatePlot(title=''):
+  if(title != ''):
+    plt.title(title)
+  else:
+    plt.title('APTS readout - waveform display')
+  plt.draw()
+  cmd = input("Next => ")
+  if(cmd.lower().find('a') != -1):
+    global PLOT_SELECTION
+    PLOT_SELECTION ^= plotSingle
+  if(cmd.lower().find('s') != -1):
+    global saveFigIndex
+    plt.savefig(fileDump.split('.')[0] + f'_{saveFigIndex}.png')
+    saveFigIndex += 1
+  if(cmd.lower().find('q') != -1):
+    exit()
+  plt.clf()
+
+def DrawFrame(frdata, norm=True):
+  baseline = int(frdata[0])
+  if(norm):
+    plt.plot([int(x)-baseline for x in frdata])
+  else:
+    plt.plot(frdata)
+  if(PLOT_SELECTION & plotSingle):
+    UpdatePlot()
 
 for ev in tqdm(evdata):
     # Find max. pixel
@@ -77,6 +105,6 @@ for ev in tqdm(evdata):
         continue
       else:
         plt.text(40, -0.5 * maxSignal, 'Min. frames: \n' + '\n'.join([str(x) for x in samplingPoints]) + '\nSeed: ' + str(maxFrame))
-      plt.title('APTS waveforms in same cluster')
-      plt.show()
-plt.show()
+      UpdatePlot('APTS waveforms in same cluster')
+
+UpdatePlot()
