@@ -19,15 +19,14 @@ using namespace std;
 ClusteringAnalog::ClusteringAnalog(Configuration& config, std::shared_ptr<Detector> detector)
     : Module(config, detector), m_detector(detector) {
 
+    require_detectors = config_.getArray<std::string>("require_detectors", {});
+
     rejectByROI = config_.get<bool>("reject_by_roi", false);
     windowSize = config_.get<int>("window_size", 3);
     thresholdSeed = config_.get<float>("threshold_seed");
     thresholdSeedSNR = config_.get<float>("thresholdSNR_seed", thresholdSeed);
     thresholdNeighbour = config_.get<float>("threshold_neighbour");
     thresholdNeighbourSNR = config_.get<float>("thresholdSNR_neighbour", thresholdNeighbour);
-    // Digital option - by detector type
-    digital_detectors_ = config_.getArray<std::string>("digital_detectors", {});
-    isDigital = false;
 
     string tmp = config_.get<string>("method", "cluster");
     if(tmp == "seed")
@@ -61,36 +60,17 @@ ClusteringAnalog::ClusteringAnalog(Configuration& config, std::shared_ptr<Detect
         auto f = new TFile(tmp.c_str(), "READ");
         if(f->IsOpen()) {
             LOG(INFO) << "Calibration file found - " << tmp;
-            // DEBUG: CE65 generated from TAF, TODO: set hName in conf.
-            hSensorPedestal = dynamic_cast<TH2F*>(f->Get("hPedestalpl1")->Clone("sensorPedestal"));
-            hSensorNoise = dynamic_cast<TH2F*>(f->Get("hnoisepl1")->Clone("sensorNoise"));
+            // Read histogram name from conf.
+            string hTemp = config_.get<string>("calibration_pedestal");
+            hSensorPedestal = dynamic_cast<TH2F*>(f->Get(hTemp.c_str())->Clone("sensorPedestal"));
+            hTemp = config_.get<string>("calibration_noise");
+            hSensorNoise = dynamic_cast<TH2F*>(f->Get(hTemp.c_str())->Clone("sensorNoise"));
             hSensorPedestal->SetDirectory(nullptr);
             hSensorNoise->SetDirectory(nullptr);
             f->Close();
             isCalibrated = true;
         } else {
             LOG(WARNING) << "Calibration file NOT FOUND - " << tmp;
-        }
-    }
-
-    resetDigital();
-}
-
-void ClusteringAnalog::resetDigital() {
-    isDigital = false;
-
-    for(auto dType : digital_detectors_) {
-        if(!strcasecmp(m_detector->getType().c_str(), dType.c_str())) {
-            isDigital = true;
-            // For ALPIDE, pixel amp. value is 1
-            thresholdSeed = 0.5;
-            thresholdSeedSNR = 0.5; // unused
-            thresholdNeighbour = 0.5;
-            thresholdNeighbourSNR = 0.5; // unused
-            coordinates = EstimationMethod::cluster;
-            seedingType = SeedingMethod::multi;
-            isCalibrated = false;
-            break;
         }
     }
 }
@@ -111,10 +91,10 @@ void ClusteringAnalog::initialize() {
     title = m_detector->getName() + " Cluster 3x3 charge;cluster 3x3 charge (ADCu);events";
     cluster3x3Charge = new TH1F("cluster3x3Charge", title.c_str(), 2100, -999.5, 20000.5);
 
-    title = m_detector->getName() + " Cluster neighbors charge;Neighbors/pixel charge (ADCu);#clusters";
-    clusterNeighborsCharge = new TH1F("clusterNeighborsCharge", title.c_str(), 2000, -9999.5, 10000.5);
-    title = m_detector->getName() + " Sum of Cluster neighbors charge;Charge outside seed (ADCu);#pixels";
-    clusterNeighborsChargeSum = new TH1F("clusterNeighborsChargeSum", title.c_str(), 2000, -9999.5, 10000.5);
+    title = m_detector->getName() + " Cluster neighbours charge;Neighbours/pixel charge (ADCu);#clusters";
+    clusterNeighboursCharge = new TH1F("clusterNeighboursCharge", title.c_str(), 2000, -9999.5, 10000.5);
+    title = m_detector->getName() + " Sum of Cluster neighbours charge;Charge outside seed (ADCu);#pixels";
+    clusterNeighboursChargeSum = new TH1F("clusterNeighboursChargeSum", title.c_str(), 2000, -9999.5, 10000.5);
 
     title = m_detector->getName() + " Cluster total charge ratio in N pixels;# pixel;charge ratio;events";
     clusterChargeRatio = new TH2F("clusterChargeRatio",
@@ -128,17 +108,17 @@ void ClusteringAnalog::initialize() {
 
     title = m_detector->getName() + " Cluster seed S/N;S/N ratio;events";
     clusterSeedSNR = new TH1F("clusterSeedSNR", title.c_str(), 1000, -0.5, 99.5);
-    title = m_detector->getName() + " Cluster neighbor S/N;S/N ratio;events";
-    clusterNeighborsSNR = new TH1F("clusterNeighborsSNR", title.c_str(), 300, -10.5, 20.5);
+    title = m_detector->getName() + " Cluster neighbour S/N;S/N ratio;events";
+    clusterNeighboursSNR = new TH1F("clusterNeighboursSNR", title.c_str(), 300, -10.5, 20.5);
 
     // Seeding - 2D correlation
-    title = m_detector->getName() + " Seed charge vs neighbors;seed charge (ADCu);neighbors charge (ADCu);events";
-    clusterSeed_Neighbors = new TH2F("clusterSeed_Neighbors", title.c_str(), 110, -999.5, 10000.5, 200, -9999.5, 10000.5);
-    title = m_detector->getName() + " Seed SNR vs neighbors;seed S/N;neighbors S/N;events";
-    clusterSeed_NeighborsSNR = new TH2F("clusterSeed_NeighborsSNR", title.c_str(), 1000, -0.5, 99.5, 300, -10.5, 20.5);
-    title = m_detector->getName() + " Seed charge vs sum of neighbors;seed charge (ADCu);charge outside seed (ADCu);events";
-    clusterSeed_NeighborsSum =
-        new TH2F("clusterSeed_NeighborsSum", title.c_str(), 110, -999.5, 10000.5, 200, -9999.5, 10000.5);
+    title = m_detector->getName() + " Seed charge vs neighbours;seed charge (ADCu);neighbours charge (ADCu);events";
+    clusterSeed_Neighbours = new TH2F("clusterSeed_Neighbours", title.c_str(), 110, -999.5, 10000.5, 200, -9999.5, 10000.5);
+    title = m_detector->getName() + " Seed SNR vs neighbours;seed S/N;neighbours S/N;events";
+    clusterSeed_NeighboursSNR = new TH2F("clusterSeed_NeighboursSNR", title.c_str(), 1000, -0.5, 99.5, 300, -10.5, 20.5);
+    title = m_detector->getName() + " Seed charge vs sum of neighbours;seed charge (ADCu);charge outside seed (ADCu);events";
+    clusterSeed_NeighboursSum =
+        new TH2F("clusterSeed_NeighboursSum", title.c_str(), 110, -999.5, 10000.5, 200, -9999.5, 10000.5);
     title = m_detector->getName() + " Seed charge vs cluster;seed charge (ADCu);cluster charge (ADCu);events";
     clusterSeed_Cluster = new TH2F("clusterSeed_Cluster", title.c_str(), 110, -999.5, 10000.5, 210, -999.5, 20000.5);
     title = m_detector->getName() + " Seed SNR vs cluster charge;seed S/N;cluster charge (ADCu);events";
@@ -158,7 +138,7 @@ void ClusteringAnalog::initialize() {
     clusterSizeCentral = new TH1F("clusterSizeCentral", title.c_str(), 100, -0.5, 99.5);
     title = m_detector->getName() + " Cluster charge (central);cluster charge;events";
     clusterChargeCentral = new TH1F("clusterChargeCentral", title.c_str(), 1100, -99.5, 1000.5);
-    title = m_detector->getName() + " Cluster seed charge (cetral);cluster seed charge;events";
+    title = m_detector->getName() + " Cluster seed charge (central);cluster seed charge;events";
     clusterSeedChargeCentral = new TH1F("clusterSeedChargeCentral", title.c_str(), 1100, -99.5, 1000.5);
     title = m_detector->getName() + " Cluster 3x3 charge (central);cluster 3x3 charge;events";
     cluster3x3ChargeCentral = new TH1F("cluster3x3ChargeCentral", title.c_str(), 1100, -99.5, 1000.5);
@@ -201,6 +181,8 @@ void ClusteringAnalog::initialize() {
                                         m_detector->nPixels().Y() - 0.5);
 }
 
+// Signal/Noise ratio
+// return charge, ff calibration file is not available.
 float ClusteringAnalog::SNR(const std::shared_ptr<Pixel>& px) {
     if(!isCalibrated) {
         LOG(WARNING) << "Calibration file NOT initialized - return raw charge of (" << px->column() << "," << px->row()
@@ -217,24 +199,32 @@ float ClusteringAnalog::SNR(const std::shared_ptr<Pixel>& px) {
     }
 }
 
-bool ClusteringAnalog::findSeed(const std::shared_ptr<Pixel>& px) {
+bool ClusteringAnalog::checkSeedCriteria(const std::shared_ptr<Pixel>& px) {
     if(isCalibrated)
         return (SNR(px) > thresholdSeedSNR);
     else
         return (px->charge() > thresholdSeed);
 }
 
-bool ClusteringAnalog::findNeighbor(const std::shared_ptr<Pixel>& px) {
+bool ClusteringAnalog::checkNeighbourCriteria(const std::shared_ptr<Pixel>& px) {
     if(isCalibrated)
         return (SNR(px) > thresholdNeighbourSNR);
     else
-        return (px->charge() > thresholdSeedSNR);
+        return (px->charge() > thresholdNeighbour);
 }
 
-// Fill analog clusters - SNR,
-void ClusteringAnalog::fillAnalog(const std::shared_ptr<Cluster>& cluster,
-                                  const std::shared_ptr<Pixel>& seed,
-                                  const PixelVector& neighbors) {
+// Fill analog clusters - charge, SNR, shape and correlations
+void ClusteringAnalog::fillHistograms(const std::shared_ptr<Cluster>& cluster,
+                                      const std::shared_ptr<Pixel>& seed,
+                                      const PixelVector& neighbours,
+                                      double chargeTotal) {
+    // Cluster info.
+    clusterSize->Fill(static_cast<double>(cluster->size()));
+    clusterCharge->Fill(cluster->charge());
+    clusterSeedCharge->Fill(seed->charge());
+    cluster3x3Charge->Fill(chargeTotal);
+
+    // Correlation
     clusterSeed_Cluster->Fill(seed->charge(), cluster->charge());
     clusterChargeShape->Fill(0., seed->charge());
     if(isCalibrated) {
@@ -243,20 +233,20 @@ void ClusteringAnalog::fillAnalog(const std::shared_ptr<Cluster>& cluster,
         clusterChargeShapeSNR->Fill(0., SNR(seed));
     }
 
-    double neighborsChargeSum = cluster->charge() - seed->charge();
-    clusterNeighborsChargeSum->Fill(neighborsChargeSum);
-    clusterSeed_NeighborsSum->Fill(seed->charge(), neighborsChargeSum);
+    double neighboursChargeSum = cluster->charge() - seed->charge();
+    clusterNeighboursChargeSum->Fill(neighboursChargeSum);
+    clusterSeed_NeighboursSum->Fill(seed->charge(), neighboursChargeSum);
 
     std::vector<double> chargeVals = {seed->charge()}; // pre-fill for sorting
     double chargeMax = seed->charge();
-    for(auto px : neighbors) {
+    for(auto px : neighbours) {
         double val = px->charge();
         if(isCalibrated) {
-            clusterNeighborsSNR->Fill(SNR(px));
-            clusterSeed_NeighborsSNR->Fill(SNR(seed), SNR(px));
+            clusterNeighboursSNR->Fill(SNR(px));
+            clusterSeed_NeighboursSNR->Fill(SNR(seed), SNR(px));
         }
-        clusterNeighborsCharge->Fill(val);
-        clusterSeed_Neighbors->Fill(seed->charge(), val);
+        clusterNeighboursCharge->Fill(val);
+        clusterSeed_Neighbours->Fill(seed->charge(), val);
         chargeVals.push_back(val);
         if(val > 0)
             chargeMax += val;
@@ -264,7 +254,7 @@ void ClusteringAnalog::fillAnalog(const std::shared_ptr<Cluster>& cluster,
 
     // Fill cluster shape
     clusterChargeShapeRatio->Fill(0., seed->charge() / chargeMax);
-    for(auto px : neighbors) {
+    for(auto px : neighbours) {
         // Define index in seeding window
         int index = windowSize * (px->row() - seed->row()) + px->column() - seed->column();
         clusterChargeShape->Fill(index, px->charge());
@@ -276,15 +266,51 @@ void ClusteringAnalog::fillAnalog(const std::shared_ptr<Cluster>& cluster,
     // Fill charge ratio by sorted charge
     double chargeRatio = 0.;
     int counter = 0;
-    // sort neighbor pixels by charge (large first to count)
+    // sort neighbour pixels by charge (large first to count)
     std::sort(chargeVals.begin(), chargeVals.end(), greater<double>());
     for(auto val : chargeVals) {
         chargeRatio += val / chargeMax;
         clusterChargeRatio->Fill(++counter, chargeRatio);
     }
+
+    // Central seeds
+    if(seed->column() > 0 && seed->row() > 0 && seed->column() < m_detector->nPixels().Y() - 1 &&
+       seed->row() < m_detector->nPixels().X() - 1) {
+        clusterSizeCentral->Fill(static_cast<double>(cluster->size()));
+        clusterChargeCentral->Fill(cluster->charge());
+        clusterSeedChargeCentral->Fill(seed->charge());
+        cluster3x3ChargeCentral->Fill(chargeTotal);
+    }
+
+    // Fill position
+    clusterPositionGlobal->Fill(cluster->global().x(), cluster->global().y());
+    clusterPositionLocal->Fill(cluster->column(), cluster->row());
+
+    auto seedLocal = m_detector->getLocalPosition(seed->column(), seed->row());
+    auto seedGlobal = m_detector->localToGlobal(seedLocal);
+    clusterSeedPositionGlobal->Fill(seedGlobal.x(), seedGlobal.y());
+    clusterSeedPositionLocal->Fill(seed->column(), seed->row());
+}
+
+// Event cut by ROI for quick check during testbeam
+// Usage: in running conf, add ClusteringAnalog for DUT after all required references
+bool ClusteringAnalog::checkEventCut(const std::shared_ptr<Clipboard>& clipboard) {
+    // Find cluster in reference plane
+    for(auto det : require_detectors) {
+        auto clusters = clipboard->getData<Cluster>(det);
+        if(clusters.empty()) {
+            LOG(DEBUG) << "Cluster not found in <" << det << ">";
+            return false;
+        }
+    }
+    LOG(DEBUG) << "Event cuts PASS - start clustering on <" << m_detector->getName() << ">";
+    return true;
 }
 
 StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
+
+    if(!checkEventCut(clipboard))
+        return StatusCode::Success;
 
     // Get the pixels
     auto pixels = clipboard->getData<Pixel>(m_detector->getName());
@@ -297,7 +323,6 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
     ClusterVector deviceClusters;
     map<std::shared_ptr<Pixel>, bool> used;
     map<int, map<int, std::shared_ptr<Pixel>>> hitmap;
-    bool addedPixel;
 
     // Get the device dimensions
     int nRows = m_detector->nPixels().Y();
@@ -309,7 +334,7 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
         // Pre-fill the hitmap with pixels
         hitmap[pixel->column()][pixel->row()] = pixel;
         // Select seeds by threshold
-        if(findSeed(pixel)) {
+        if(checkSeedCriteria(pixel)) {
             switch(seedingType) {
             case SeedingMethod::max:
                 if(seedCandidates.empty() || pixel->charge() > seedCandidates[0]->charge()) {
@@ -335,50 +360,34 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
         cluster->addPixel(&*seed);
         used[seed] = true;
 
-        // TODO: add timestamp
+        // TO DO: add timestamp
 
-        // Search neighbors
-        PixelVector neighbors;
+        // Search neighbours in a window around seed
+        PixelVector neighbours;
         double chargeTotal = seed->charge();
         double xWeightTotal = double(seed->column()) * chargeTotal;
         double yWeightTotal = double(seed->row()) * chargeTotal;
-        addedPixel = true;
         auto pxCenter = seed;
-        while(addedPixel) { // flag used for touching method
-            addedPixel = false;
+        int seedToEdge = (windowSize < 3) ? 1 : (windowSize - 1) / 2;
+        for(int col = max(pxCenter->column() - seedToEdge, 0); col <= min(pxCenter->column() + seedToEdge, nCols - 1);
+            col++) {
+            for(int row = max(pxCenter->row() - seedToEdge, 0); row <= min(pxCenter->row() + seedToEdge, nRows - 1); row++) {
+                auto pixel = hitmap[col][row];
+                if(!pixel || used[pixel])
+                    continue; // No pixel or already in other cluster
 
-            int seedToEdge = isDigital ? 1 : (windowSize - 1) / 2;
-            for(int col = max(pxCenter->column() - seedToEdge, 0); col <= min(pxCenter->column() + seedToEdge, nCols - 1);
-                col++) {
-                for(int row = max(pxCenter->row() - seedToEdge, 0); row <= min(pxCenter->row() + seedToEdge, nRows - 1);
-                    row++) {
-                    auto pixel = hitmap[col][row];
-                    if(!pixel || used[pixel])
-                        continue; // No pixel or already in other cluster
+                if(checkNeighbourCriteria(pixel)) {
+                    cluster->addPixel(&*pixel);
+                    used[pixel] = true;
+                    neighbours.push_back(pixel);
+                } // Neighbours found over threshold
 
-                    if(findNeighbor(pixel)) {
-                        cluster->addPixel(&*pixel);
-                        used[pixel] = true;
-                        neighbors.push_back(pixel);
-                    } // Neighbors found over threshold
-
-                    if(isDigital)
-                        continue;
-                    // Sum FULL window around seed
-                    chargeTotal += pixel->charge();
-                    xWeightTotal += double(pixel->column()) * pixel->charge();
-                    yWeightTotal += double(pixel->row()) * pixel->charge();
-                }
-            } // Loop neighbors
-
-            // Touching-neighbors method (only for digital now)
-            if(isDigital && neighbors.size() > 0) {
-                addedPixel = true;
-                pxCenter = neighbors.back();
-                neighbors.pop_back();
-            } else
-                break; // make sure to end loop
-        }              // Loop - connecting all neighbors
+                // Sum FULL window around seed
+                chargeTotal += pixel->charge();
+                xWeightTotal += double(pixel->column()) * pixel->charge();
+                yWeightTotal += double(pixel->row()) * pixel->charge();
+            }
+        } // Loop neighbours
 
         // Finalise the cluster and save it
         switch(coordinates) {
@@ -415,11 +424,8 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
 
         // Create object with local cluster position
         auto positionLocal = m_detector->getLocalPosition(cluster->column(), cluster->row());
-        auto seedLocal = m_detector->getLocalPosition(seed->column(), seed->row());
-
         // Calculate global cluster position
         auto positionGlobal = m_detector->localToGlobal(positionLocal);
-        auto seedGlobal = m_detector->localToGlobal(seedLocal);
 
         cluster->setDetectorID(pixels.front()->detectorID());
         cluster->setClusterCentre(positionGlobal);
@@ -430,29 +436,9 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
         LOG(DEBUG) << m_detector->getName() << " - cluster local: (" << cluster->column() << "," << cluster->row()
                    << ") - cluster global: " << cluster->global();
 
-        // Output - fill histograms
-        clusterSize->Fill(static_cast<double>(cluster->size()));
-        clusterCharge->Fill(cluster->charge());
-        clusterSeedCharge->Fill(seed->charge());
-        cluster3x3Charge->Fill(chargeTotal);
-
-        if(!isDigital)
-            fillAnalog(cluster, seed, neighbors);
-        neighbors.clear();
-
-        // ROI?
-        if(seed->column() > 0 && seed->row() > 0 && seed->column() < nRows - 1 && seed->row() < nCols - 1) {
-            clusterSizeCentral->Fill(static_cast<double>(cluster->size()));
-            clusterChargeCentral->Fill(cluster->charge());
-            clusterSeedChargeCentral->Fill(seed->charge());
-            cluster3x3ChargeCentral->Fill(chargeTotal);
-        }
-
-        clusterPositionGlobal->Fill(cluster->global().x(), cluster->global().y());
-        clusterPositionLocal->Fill(cluster->column(), cluster->row());
-
-        clusterSeedPositionGlobal->Fill(seedGlobal.x(), seedGlobal.y());
-        clusterSeedPositionLocal->Fill(seed->column(), seed->row());
+        // Output
+        fillHistograms(cluster, seed, neighbours, chargeTotal);
+        neighbours.clear();
     } // Loop - seedCandidates
 
     clipboard->putData(deviceClusters, m_detector->getName());
@@ -465,17 +451,15 @@ StatusCode ClusteringAnalog::run(const std::shared_ptr<Clipboard>& clipboard) {
 
 /*
  Function to calculate the centre of gravity of a cluster.
- Sets the local and global cluster positions as well.
+ Ignore pixels with 0 or negative charge
 */
 void ClusteringAnalog::calculateClusterCentre(Cluster* cluster) {
-    bool chargeWeighting = true;
 
     LOG(DEBUG) << "== Making cluster centre";
     // Empty variables to calculate cluster position
     double column(0), row(0), charge(0);
     double column_sum(0), column_sum_chargeweighted(0);
     double row_sum(0), row_sum_chargeweighted(0);
-    bool found_charge_zero = false;
 
     // Get the pixels on this cluster
     auto pixels = cluster->pixels();
@@ -484,16 +468,12 @@ void ClusteringAnalog::calculateClusterCentre(Cluster* cluster) {
 
     // Loop over all pixels
     for(auto& pixel : pixels) {
-        // If charge == 0 (use epsilon to avoid errors in floating-point arithmetic):
+        // If charge <= 0 (use epsilon to avoid errors in floating-point arithmetic):
         if(pixel->charge() < std::numeric_limits<double>::epsilon()) {
-            // apply arithmetic mean if a pixel has zero charge
-            found_charge_zero = true;
+            continue;
         }
         charge += pixel->charge();
 
-        // We need both column_sum and column_sum_chargeweighted
-        // as we don't know a priori if there will be a pixel with
-        // charge==0 such that we have to fall back to the arithmetic mean.
         column_sum += pixel->column();
         row_sum += pixel->row();
         column_sum_chargeweighted += (pixel->column() * pixel->charge());
@@ -502,16 +482,9 @@ void ClusteringAnalog::calculateClusterCentre(Cluster* cluster) {
         LOG(DEBUG) << "- pixel col, row: " << pixel->column() << "," << pixel->row();
     }
 
-    if(chargeWeighting && !found_charge_zero) {
-        // Charge-weighted centre-of-gravity for cluster centre:
-        // (here it's safe to divide by the charge as it cannot be zero due to !found_charge_zero)
-        column = column_sum_chargeweighted / charge;
-        row = row_sum_chargeweighted / charge;
-    } else {
-        // Arithmetic cluster centre:
-        column = column_sum / static_cast<double>(cluster->size());
-        row = row_sum / static_cast<double>(cluster->size());
-    }
+    assert(charge > 0);
+    column = column_sum_chargeweighted / charge;
+    row = row_sum_chargeweighted / charge;
 
     LOG(DEBUG) << "- cluster col, row: " << column << "," << row << " at time "
                << Units::display(cluster->timestamp(), "us");

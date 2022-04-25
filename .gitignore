@@ -4,6 +4,7 @@ tmp/*
 */*.conf
 lab/output*
 .vscode/*
+*.root
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
