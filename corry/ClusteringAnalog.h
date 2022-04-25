@@ -33,18 +33,16 @@ namespace corryvreckan {
         StatusCode run(const std::shared_ptr<Clipboard>& clipboard) override;
 
     private:
-        // Reset configuration for digital detectors
-        void resetDigital();
-
         void calculateClusterCentre(Cluster*);
 
         float SNR(const std::shared_ptr<Pixel>& px); // Signal/Noise ratio
-        bool findSeed(const std::shared_ptr<Pixel>& px);
-        bool findNeighbor(const std::shared_ptr<Pixel>& px);
-
-        void fillAnalog(const std::shared_ptr<Cluster>& cluster,
-                        const std::shared_ptr<Pixel>& seed,
-                        const PixelVector& neighbors);
+        bool checkSeedCriteria(const std::shared_ptr<Pixel>& px);
+        bool checkNeighbourCriteria(const std::shared_ptr<Pixel>& px);
+        bool checkEventCut(const std::shared_ptr<Clipboard>& clipboard);
+        void fillHistograms(const std::shared_ptr<Cluster>& cluster,
+                            const std::shared_ptr<Pixel>& seed,
+                            const PixelVector& neighbours,
+                            double chargeTotal);
 
     private:
         enum class EstimationMethod {
@@ -65,17 +63,17 @@ namespace corryvreckan {
         TH1F* clusterSeedCharge;
         TH1F* clusterCharge;
         TH1F* cluster3x3Charge;
-        TH1F* clusterNeighborsCharge;
-        TH1F* clusterNeighborsChargeSum;
+        TH1F* clusterNeighboursCharge;
+        TH1F* clusterNeighboursChargeSum;
         TH2F* clusterChargeRatio;
 
         TH1F* clusterSeedSNR;
-        TH1F* clusterNeighborsSNR;
+        TH1F* clusterNeighboursSNR;
 
         // Seeding - 2D correlation
-        TH2F* clusterSeed_Neighbors;
-        TH2F* clusterSeed_NeighborsSNR;
-        TH2F* clusterSeed_NeighborsSum;
+        TH2F* clusterSeed_Neighbours;
+        TH2F* clusterSeed_NeighboursSNR;
+        TH2F* clusterSeed_NeighboursSum;
         TH2F* clusterSeed_Cluster;
         TH2F* clusterSeedSNR_Cluster;
 
@@ -96,15 +94,12 @@ namespace corryvreckan {
         TH2F* clusterSeedPositionLocal;
 
         bool rejectByROI;
-
+        std::vector<std::string> require_detectors; // Event cut
         // Threshold - raw value (ADC unit, TOT, ...)
         float thresholdSeed;
         float thresholdNeighbour;
 
-        std::vector<std::string> digital_detectors_;
-        bool isDigital;
-
-        int windowSize; // Cluster matrix to search neighbors
+        int windowSize; // Cluster matrix to search neighbours
 
         // Threshold - Signal/Noise ratio (require calibration)
         float thresholdSeedSNR;
