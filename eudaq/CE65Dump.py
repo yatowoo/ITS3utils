@@ -12,7 +12,8 @@ NX, NY, N_FRAME     = 64, 32, 9
 FIXED_TRIGGER_FRAME = 4
 FIXED_TRIGGER_WIDTH = 1
 SUBMATRIX_N         = 3
-SUBMATRIX_EDGE      = [21, 42, 63]
+SUBMATRIX_EDGE      = [21, 42, 64]
+SUBMATRIX_POLARITY  = ['+', '+', '-']
 SUBMATRIX_CUT       = [1500, 1800, 500]
 SIGNAL_METHOD       = ['cds', 'max', 'fix', 'fax']
 N_EVENTS_MAX        = int(1e6)
@@ -67,7 +68,16 @@ def baseline(frdata):
   return frdata[0]
 
 # Signal extraction from analogue wavefrom by each pixel
-def signal(frdata, opt='cds'):
+# Submatrix-SF Negative signal (min)
+def findMaxChargeFrame(frdata, pol='+'):
+  if(pol == '+'):
+    return np.argmax(frdata)
+  elif(pol == '-'):
+    return np.argmin(frdata)
+  else:
+    print('[X] ERROR - UNKNOWN signal polarity : ' + pol)
+  return 0
+def signal(frdata, opt='cds', pol='+'):
   val, ifr = 0, 0
   opt = opt.lower().strip()
   # CDS (last - 1st)
@@ -76,7 +86,7 @@ def signal(frdata, opt='cds'):
     ifr = len(frdata) -1
   # MAX (max - baseline)
   elif(opt == 'max'):
-    ifr = np.argmax(frdata)
+    ifr = findMaxChargeFrame(frdata, pol)
     val = frdata[ifr] - baseline(frdata)
   # FIX (TriggerFrame - baseline)
   elif(opt == 'fix'):
@@ -84,10 +94,10 @@ def signal(frdata, opt='cds'):
     val = frdata[ifr] - baseline(frdata)
   # FAX - MAX in FIXED trigger window +/- 1
   elif(opt == 'fax'):
-    lower = min(0, FIXED_TRIGGER_FRAME-1)
-    upper = max(len(frdata), FIXED_TRIGGER_FRAME+2)
+    lower = min(0, FIXED_TRIGGER_FRAME-FIXED_TRIGGER_WIDTH)
+    upper = max(len(frdata), FIXED_TRIGGER_FRAME+FIXED_TRIGGER_WIDTH+1)
     trigWindow = frdata[lower:upper]
-    ifr = np.argmax(trigWindow) + lower
+    ifr = lower + findMaxChargeFrame(trigWindow, pol)
     val = frdata[ifr] - baseline(frdata)
   else:
     print(f'[X] UNKNOWN signal extraction method - {opt}')
@@ -102,7 +112,7 @@ def eventCut(evdata):
     if(ix > SUBMATRIX_EDGE[submatrixIdx]):
       submatrixIdx += 1
     for iy in range(NY):
-      val, ifr = signal(list(evdata[ix][iy]), args.signal)
+      val, ifr = signal(list(evdata[ix][iy]), args.signal, SUBMATRIX_POLARITY[submatrixIdx])
       if(abs(val) > SUBMATRIX_CUT[submatrixIdx]):
         eventPass = True
   return eventPass
