@@ -10,10 +10,12 @@ from tqdm import tqdm
 # Constants and Options
 NX, NY, N_FRAME     = 64, 32, 9
 FIXED_TRIGGER_FRAME = 4
+FIXED_TRIGGER_WIDTH = 1
 SUBMATRIX_N         = 3
 SUBMATRIX_EDGE      = [21, 42, 63]
 SUBMATRIX_CUT       = [1500, 1800, 500]
 SIGNAL_METHOD       = ['cds', 'max', 'fix', 'fax']
+N_EVENTS_MAX        = int(1e6)
 
 # Arguments
 parser = argparse.ArgumentParser(description='CE65 data dumper')
@@ -32,12 +34,12 @@ parser.add_argument('-d', '--dump', default=False,
                     help='save np.array into file', action='store_true')
 parser.add_argument('-v', '--debug', default=False,
                     help='Print debug info.', action='store_true')
+parser.add_argument('--qa', default=False,
+                    help='Process QA result.', action='store_true')
 
 args = parser.parse_args()
 
 fr = pyeudaq.FileReader('native', args.input)
-
-N_EVENTS_MAX = int(1e6)
 
 def eudaqGetNEvents(rawDataPath):
   eudaqExe = 'euCliReader'
@@ -105,11 +107,22 @@ def eventCut(evdata):
         eventPass = True
   return eventPass
 
-def analog_qa(evdata):
-  # Baseline
-  # Noise
-  # Signal
-  return
+if(args.qa):
+  from ROOT import TFile, TH2F
+  global h2qa, qaOut
+  h2qa = {}
+  qaOut = TFile('ce65_qa.root','RECREATE')
+  for sigTag in SIGNAL_METHOD:
+    h2qa[sigTag] = TH2F(f'h2qa_{sigTag}',f'Noise distribution (method={sigTag});Pixel ID;ADCu;#ev',
+      NX*NY, -0.5, NX*NY-0.5,
+      400, -2000, 2000)
+def analogue_qa(evdata):
+  for ix in range(NX):
+    for iy in range(NY):
+      iPx = iy + ix * NY
+      for sigTag in SIGNAL_METHOD:
+        val, ifr = signal(list(evdata[ix][iy]), sigTag)
+        h2qa[sigTag].Fill(iPx, val)
 
 def decode_event(raw):
     global N_FRAME
@@ -148,9 +161,15 @@ for iev in tqdm(range(args.nev)):
     if(args.noise or eventCut(evdata)):
       nEvent_Pass += 1
       if(args.dump): evds.append(evdata)
+    if(args.qa):
+      analogue_qa(evdata)
     break
 
 if(args.dump): np.save(args.output, evds)
 
+if(args.qa):
+  for sigTag in SIGNAL_METHOD:
+    h2qa[sigTag].Write()
+  qaOut.Close()
 print(f'[+] CE65 event found : {nEvent_DUT}')
 print(f'[+] CE65 event pass cut : {nEvent_Pass}')
