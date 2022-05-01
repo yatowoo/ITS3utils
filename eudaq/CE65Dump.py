@@ -95,8 +95,8 @@ def signalAmp(frdata, opt='cds', pol='+'):
     val = frdata[ifr] - baseline(frdata)
   # FAX - MAX in FIXED trigger window +/- 1
   elif(opt == 'fax'):
-    lower = min(0, FIXED_TRIGGER_FRAME-FIXED_TRIGGER_WIDTH)
-    upper = max(len(frdata), FIXED_TRIGGER_FRAME+FIXED_TRIGGER_WIDTH+1)
+    lower = max(0, FIXED_TRIGGER_FRAME-FIXED_TRIGGER_WIDTH)
+    upper = min(len(frdata), FIXED_TRIGGER_FRAME+FIXED_TRIGGER_WIDTH+1)
     trigWindow = frdata[lower:upper]
     ifr = lower + findMaxChargeFrame(trigWindow, pol)
     val = frdata[ifr] - baseline(frdata)

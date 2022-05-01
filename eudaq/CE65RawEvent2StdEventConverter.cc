@@ -180,9 +180,9 @@ bool CE65RawEvent2StdEventConverter::LoadConfiguration(eudaq::ConfigSPC conf) co
     }
     confLocal.subEdge = new int[confLocal.N_SUBMATRIX];
 
-    if(confLocal.subEdge){
-      delete confLocal.subEdge;
-      confLocal.subEdge = nullptr;
+    if(confLocal.subThr){
+      delete confLocal.subThr;
+      confLocal.subThr = nullptr;
     }
     confLocal.subThr = new int[confLocal.N_SUBMATRIX];
 
@@ -248,10 +248,12 @@ bool CE65RawEvent2StdEventConverter::Converting(eudaq::EventSPC in,eudaq::StdEve
   size_t n=data.size();
   for(int ix=0; ix < X_MX_SIZE; ix++){
     int thr = 0;
+    int sub = 0;
     if(confLocal.flagSimpleCut){
       for(int iSub = 0; iSub < confLocal.N_SUBMATRIX; iSub++){
         if(ix < confLocal.subEdge[iSub]){
           thr = confLocal.subThr[iSub];
+          sub = iSub;
           break;
         }}}// Set threshold for this sub-matrix
     for(int iy=0; iy < Y_MX_SIZE; iy++){
@@ -267,15 +269,18 @@ bool CE65RawEvent2StdEventConverter::Converting(eudaq::EventSPC in,eudaq::StdEve
       if(!confLocal.flagSimpleCut){
         float valNoise = confLocal.hNoise->GetBinContent(ix+1, iy+1);
         float valPedestal = confLocal.hPedestal->GetBinContent(ix+1, iy+1);
+        float charge = raw - valPedestal;
+        // Signal Polarity in sub-matrix (+,+,-)
+        if(sub == 2) charge = (-charge);
         // online monitor - eudaq2
         if(confLocal.flagMonitor){
-          if(raw - valPedestal > valNoise * confLocal.seedSNR)
+          if(charge > valNoise * confLocal.seedSNR)
             plane.PushPixel(ix, iy, 1);
         }
         // analysis - corryvreckan::EventLoaderEUDAQ2
         else
-          plane.PushPixel(ix, iy, raw - valPedestal); // Charge in ADC unit
-      }else if(raw > thr){
+          plane.PushPixel(ix, iy, charge); // Charge in ADC unit
+      }else if(std::abs(raw) > thr){
         plane.PushPixel(ix, iy, 1);
       }
   }} // End - loop pixels
