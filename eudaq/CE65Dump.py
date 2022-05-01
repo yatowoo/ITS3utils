@@ -6,6 +6,7 @@ import argparse, subprocess, re
 import pyeudaq
 import numpy as np
 from tqdm import tqdm
+import signal as sys_signal
 
 # Constants and Options
 NX, NY, N_FRAME     = 64, 32, 9
@@ -77,7 +78,7 @@ def findMaxChargeFrame(frdata, pol='+'):
   else:
     print('[X] ERROR - UNKNOWN signal polarity : ' + pol)
   return 0
-def signal(frdata, opt='cds', pol='+'):
+def signalAmp(frdata, opt='cds', pol='+'):
   val, ifr = 0, 0
   opt = opt.lower().strip()
   # CDS (last - 1st)
@@ -112,7 +113,7 @@ def eventCut(evdata):
     if(ix > SUBMATRIX_EDGE[submatrixIdx]):
       submatrixIdx += 1
     for iy in range(NY):
-      val, ifr = signal(list(evdata[ix][iy]), args.signal, SUBMATRIX_POLARITY[submatrixIdx])
+      val, ifr = signalAmp(list(evdata[ix][iy]), args.signal, SUBMATRIX_POLARITY[submatrixIdx])
       if(abs(val) > SUBMATRIX_CUT[submatrixIdx]):
         eventPass = True
   return eventPass
@@ -131,7 +132,7 @@ def analogue_qa(evdata):
     for iy in range(NY):
       iPx = iy + ix * NY
       for sigTag in SIGNAL_METHOD:
-        val, ifr = signal(list(evdata[ix][iy]), sigTag)
+        val, ifr = signalAmp(list(evdata[ix][iy]), sigTag)
         h2qa[sigTag].Fill(iPx, val)
 
 def decode_event(raw):
@@ -154,6 +155,14 @@ def decode_event(raw):
                   pass
     return evdata
 
+cmd_STOP = False
+def stop_event(sig_num, frame):
+  global cmd_STOP
+  cmd_STOP = True
+  print('[+] STOP event processing by CTRL+C')
+
+sys_signal.signal(sys_signal.SIGINT, stop_event)
+
 evds = []
 nEvent_DUT = 0
 nEvent_Pass = 0
@@ -174,6 +183,7 @@ for iev in tqdm(range(args.nev)):
     if(args.qa):
       analogue_qa(evdata)
     break
+  if(cmd_STOP): break
 
 if(args.dump): np.save(args.output, evds)
 
