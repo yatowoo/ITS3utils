@@ -122,7 +122,7 @@ if(args.qa):
   from ROOT import TFile, TH2F
   global h2qa, qaOut
   h2qa = {}
-  qaOut = TFile('ce65_qa.root','RECREATE')
+  qaOut = TFile(args.output + '-qa.root','RECREATE')
   for sigTag in SIGNAL_METHOD:
     h2qa[sigTag] = TH2F(f'h2qa_{sigTag}',f'Noise distribution (method={sigTag});Pixel ID;ADCu;#ev',
       NX*NY, -0.5, NX*NY-0.5,
@@ -189,6 +189,7 @@ if(args.dump): np.save(args.output, evds)
 
 if(args.qa):
   for sigTag in SIGNAL_METHOD:
+    h2qa[sigTag].SetDrawOption("colz")
     h2qa[sigTag].Write()
   qaOut.Close()
 print(f'[+] CE65 event found : {nEvent_DUT}')
