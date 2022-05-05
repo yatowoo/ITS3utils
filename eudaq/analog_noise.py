@@ -39,6 +39,7 @@ else:
   PY = pixelID - PX * NY
 
 baseline_long = []
+cds_long = []
 for ev in tqdm(evdata):
   #plt.plot(ev[PX][PY])
   baseline = []
@@ -47,7 +48,9 @@ for ev in tqdm(evdata):
     pxID.append([])
     baseline.append([])
   if(not args.single):
-    baseline_long += list(ev[PX][PY])
+    frdata = list(ev[PX][PY])
+    baseline_long += frdata
+    cds_long.append(frdata[-1] - frdata[0])
   for ix in range(NX):
     for iy in range(NY):
       iSub = getSub(ix,iy)
@@ -69,8 +72,9 @@ for ev in tqdm(evdata):
 N_WINDOW_AVG = 10
 dfBaseline = pd.DataFrame(baseline_long)
 avg = dfBaseline.rolling(window=N_FRAME*N_WINDOW_AVG).mean()
-plt.plot(baseline_long, 'k-', label='Baseline')
+plt.scatter(range(len(baseline_long)), baseline_long, label='Baseline')
 plt.plot(avg, 'r-', label=f'Running Avg. ({N_WINDOW_AVG} events)')
+plt.scatter(range(0,len(baseline_long),N_FRAME), cds_long,label='CDS')
 plt.title(f'Baseline of pixels ({PX},{PY})')
 plt.xlabel('Time / Frame ID')
 plt.ylabel('Raw Amp. (ADCu)')

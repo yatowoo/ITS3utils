@@ -16,7 +16,7 @@ SUBMATRIX_N         = 3
 SUBMATRIX_EDGE      = [21, 42, 64]
 SUBMATRIX_POLARITY  = ['+', '+', '-']
 SUBMATRIX_CUT       = [1500, 1800, 500]
-SIGNAL_METHOD       = ['cds', 'max', 'fix', 'fax']
+SIGNAL_METHOD       = ['cds', 'max', 'fix', 'fix_diff','fix_max']
 N_EVENTS_MAX        = int(1e6)
 
 # Arguments
@@ -32,12 +32,16 @@ parser.add_argument('-s', '--signal', default='cds',
                     type=str, choices=SIGNAL_METHOD, help='Signal extraction method')
 parser.add_argument('-n', '--noise', default=False,
                     help='Noise run - no signal cuts', action='store_true')
+parser.add_argument('-a', '--all', default=False,
+                    help='All events - no signal cuts', action='store_true')
 parser.add_argument('-d', '--dump', default=False,
                     help='save np.array into file', action='store_true')
 parser.add_argument('-v', '--debug', default=False,
                     help='Print debug info.', action='store_true')
 parser.add_argument('--qa', default=False,
                     help='Process QA result.', action='store_true')
+parser.add_argument('--cut', default='1500,1800,500',
+                    help='Simple threshold for each submatrix')
 
 args = parser.parse_args()
 
@@ -94,7 +98,10 @@ def signalAmp(frdata, opt='cds', pol='+'):
     ifr = FIXED_TRIGGER_FRAME
     val = frdata[ifr] - baseline(frdata)
   # FAX - MAX in FIXED trigger window +/- 1
-  elif(opt == 'fax'):
+  elif(opt == 'fix_diff'):
+    ifr = FIXED_TRIGGER_FRAME
+    val = frdata[ifr] - frdata[ifr-1]
+  elif(opt == 'fix_max'):
     lower = max(0, FIXED_TRIGGER_FRAME-FIXED_TRIGGER_WIDTH)
     upper = min(len(frdata), FIXED_TRIGGER_FRAME+FIXED_TRIGGER_WIDTH+1)
     trigWindow = frdata[lower:upper]
@@ -113,8 +120,10 @@ def eventCut(evdata):
     if(ix > SUBMATRIX_EDGE[submatrixIdx]):
       submatrixIdx += 1
     for iy in range(NY):
-      val, ifr = signalAmp(list(evdata[ix][iy]), args.signal, SUBMATRIX_POLARITY[submatrixIdx])
-      if(abs(val) > SUBMATRIX_CUT[submatrixIdx]):
+      frdata = list(evdata[ix][iy])
+      pol = SUBMATRIX_POLARITY[submatrixIdx]
+      val, ifr = signalAmp(frdata, args.signal, pol)
+      if(abs(val) > SUBMATRIX_CUT[submatrixIdx] and ifr == findMaxChargeFrame(frdata, pol)):
         eventPass = True
   return eventPass
 
@@ -166,20 +175,39 @@ sys_signal.signal(sys_signal.SIGINT, stop_event)
 evds = []
 nEvent_DUT = 0
 nEvent_Pass = 0
+EV_NUMBER_DIFF = 0
+EV_TRIGGER_DIFF = 0
+evNo, trigNo = 0, 0
+subName = ''
 for iev in tqdm(range(args.nev)):
   ev = fr.GetNextEvent()
   if ev is None: break
   sevs = ev.GetSubEvents()
   if sevs is None: break
   for sev in sevs:
-    if sev.GetDescription() != args.dut_id: continue
+    # Event number check (mismatch during data taking)
+    if(abs(sev.GetEventN() - sev.GetTriggerN()) > EV_TRIGGER_DIFF):
+      for debugSev in sevs:
+        print(f'[X] Event / Trigger number {debugSev.GetEventN()}/{debugSev.GetTriggerN()} - {debugSev.GetDescription()}')
+      EV_TRIGGER_DIFF = abs(sev.GetEventN() - sev.GetTriggerN())
+    if(abs(sev.GetEventN() - evNo) > EV_NUMBER_DIFF):
+      print(f'[X] WARNING : Event/Trigger number - {subName} {evNo}/{trigNo}, {sev.GetEventN()}/{sev.GetTriggerN()} - {sev.GetDescription()}')
+      EV_NUMBER_DIFF = abs(sev.GetEventN() - evNo)
+    if sev.GetDescription() != args.dut_id:
+      continue
+    else:
+      subName = sev.GetDescription()
+      evNo = sev.GetEventN()
+      trigNo = sev.GetTriggerN()
     # Process raw data from DUT sub-event
     nEvent_DUT += 1
     evdata = decode_event(sev)
     # DEBUG
-    if(args.noise or eventCut(evdata)):
+    if(args.noise or args.all or eventCut(evdata)):
       nEvent_Pass += 1
       if(args.dump): evds.append(evdata)
+      if(args.debug):
+        print('[+] DEBUG - CE65 events found')
     if(args.qa):
       analogue_qa(evdata)
     break

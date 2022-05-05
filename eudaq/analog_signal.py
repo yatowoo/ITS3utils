@@ -45,13 +45,14 @@ def UpdatePlot(title=''):
   plt.tight_layout()
   plt.show()
 
-fig, pads = plt.subplots(1, SUBMATRIX_N, figsize=(15,4))
+fig = None
+if(not args.single):
+  fig, pads = plt.subplots(1, SUBMATRIX_N, figsize=(15,4))
 args.nev = min(len(evdata), args.nev)
 for iev in tqdm(range(args.nev)):
   ev = evdata[iev]
   #plt.plot(ev[PX][PY])
   if(args.single):
-    fig.clf()
     fig, pads = plt.subplots(1, SUBMATRIX_N, figsize=(15,4))
   for pad, tag in zip(pads, SUBMATRIX_TAG):
     pad.set_title(f'Sub-matrix ({tag})')
