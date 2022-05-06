@@ -42,6 +42,8 @@ parser.add_argument('--qa', default=False,
                     help='Process QA result.', action='store_true')
 parser.add_argument('--cut', default='1500,1800,500',
                     help='Simple threshold for each submatrix')
+parser.add_argument('--skip', default=0,
+                    help='Skip total events in raw file')
 
 args = parser.parse_args()
 
@@ -179,6 +181,10 @@ EV_NUMBER_DIFF = 0
 EV_TRIGGER_DIFF = 0
 evNo, trigNo = 0, 0
 subName = ''
+if(args.skip > 0):
+  print(f'[-] Skip {args.skip} total events in RAW file (not data events)')
+  for _ in range(args.skip):
+    ev = fr.GetNextEvent()
 for iev in tqdm(range(args.nev)):
   ev = fr.GetNextEvent()
   if ev is None: break
