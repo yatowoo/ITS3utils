@@ -10,7 +10,7 @@ import signal as sys_signal
 
 # Constants and Options
 NX, NY, N_FRAME     = 64, 32, 9
-FIXED_TRIGGER_FRAME = 4
+FIXED_TRIGGER_FRAME = 2
 FIXED_TRIGGER_WIDTH = 1
 SUBMATRIX_N         = 3
 SUBMATRIX_EDGE      = [21, 42, 64]
@@ -177,7 +177,6 @@ sys_signal.signal(sys_signal.SIGINT, stop_event)
 evds = []
 nEvent_DUT = 0
 nEvent_Pass = 0
-EV_NUMBER_DIFF = 0
 EV_TRIGGER_DIFF = 0
 evNo, trigNo = 0, 0
 subName = ''
@@ -192,13 +191,9 @@ for iev in tqdm(range(args.nev)):
   if sevs is None: break
   for sev in sevs:
     # Event number check (mismatch during data taking)
-    if(abs(sev.GetEventN() - sev.GetTriggerN()) > EV_TRIGGER_DIFF):
-      for debugSev in sevs:
-        print(f'[X] Event / Trigger number {debugSev.GetEventN()}/{debugSev.GetTriggerN()} - {debugSev.GetDescription()}')
-      EV_TRIGGER_DIFF = abs(sev.GetEventN() - sev.GetTriggerN())
-    if(abs(sev.GetEventN() - evNo) > EV_NUMBER_DIFF):
+    if(args.debug and abs(sev.GetTriggerN() - trigNo) > EV_TRIGGER_DIFF):
       print(f'[X] WARNING : Event/Trigger number - {subName} {evNo}/{trigNo}, {sev.GetEventN()}/{sev.GetTriggerN()} - {sev.GetDescription()}')
-      EV_NUMBER_DIFF = abs(sev.GetEventN() - evNo)
+      EV_NUMBER_DIFF = abs(sev.GetTriggerN() - trigNo)
     if sev.GetDescription() != args.dut_id:
       continue
     else:

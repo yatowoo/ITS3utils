@@ -239,6 +239,25 @@ dirTmp = corryHist.Get(analysisModule)
 if(dirTmp != None):
   paint.DrawAnalysisDUT(dirTmp.Get(detector))
 
+def DrawTracking4D(self, dirAna):
+  # Init
+  self.pageName = f"Tracking4D - {detector}"
+  # Drawing
+  h = dirAna.Get("tracksPerEvent")
+  h.GetXaxis().SetRangeUser(-0.5,10)
+  self.DrawHist(h, "tracksPerEvent", optLogY=True)
+  h = dirAna.Get("trackChi2ndof")
+  h.GetXaxis().SetRangeUser(0,20)
+  self.DrawHist(h, "trackChi2ndof", optLogY=True)
+  # Output
+  self.NextPage()
+  return None
+CorryPainter.DrawTracking4D = DrawTracking4D
+
+dirTmp = corryHist.Get(trackingModule)
+if(dirTmp != None):
+  paint.DrawTracking4D(dirTmp)
+
 def DrawAlignmentDUT(self, dirAlign):
   # Init
   self.pageName = f"AlignmentDUT - {detector}"
