@@ -21,6 +21,8 @@ parser.add_argument('--debug','-v', help='Debug for fitting by pixels', default=
 args = parser.parse_args()
 
 NX, NY = 64, 32
+SUBMATRIX_EDGE = [22, 42, 64]
+SUBMATRIX_NOISE_CUT = [200, 200, 30]
 
 qaFile = ROOT.TFile.Open(args.input)
 hqa = qaFile.Get(f"h2qa_{args.signal}")
@@ -31,6 +33,7 @@ hqa.Draw('colz')
 c.cd(2)
 
 fitfcn = ROOT.TF1('fp','gaus',-2000,2000)
+fitfcn.SetLineColor(ROOT.kRed)
 hRMS = ROOT.TH1F('hrms','RMS',100,0,500)
 gRMS = ROOT.TGraph()
 hSigma = ROOT.TH1F('hsigma','#sigma (gaus fitting)',100,0,500)
@@ -42,6 +45,19 @@ hPedestalMap = ROOT.TH2D('hPedestalpl1','Map of pixel pedestal',
   64,-0.5,63.5,32,-0.5,31.5)
 hNoiseMap = ROOT.TH2D('hnoisepl1','Map of pixel noise amplitude',
   64,-0.5,63.5,32,-0.5,31.5)
+
+def noise_type(qadb):
+  cut = 0
+  for iSub, edge in enumerate(SUBMATRIX_EDGE):
+    if qadb['pos'][0] < edge:
+      cut = SUBMATRIX_NOISE_CUT[iSub]
+      break
+  if qadb['rms'] < cut:
+    return 'normal'
+  elif qadb['sigma'] < cut:
+    return 'RTS'
+  else:
+    return 'hot'
 if(args.taf is not None):
     tafFile = ROOT.TFile.Open(args.taf)
     mapTAF = tafFile.Get('hnoisepl1').Clone('h2noiseTAF')
@@ -73,6 +89,9 @@ for ipx in range(1,2048+1):
   qadb['ndf'] = resultPtr.Ndf()
   qadb['mean'] = fitfcn.GetParameter(1)
   qadb['sigma'] = fitfcn.GetParameter(2)
+  # Noise type: normal, RTS, hot
+  qadb['type'] = noise_type(qadb)
+  # Fill histograms
   hPedestalMap.Fill(ix, iy, qadb['mean'])
   hNoiseMap.Fill(ix, iy, qadb['sigma'])
   gRMS.AddPoint(ipx-1, qadb['rms'])
@@ -81,7 +100,7 @@ for ipx in range(1,2048+1):
   hSigma.Fill(qadb['sigma'])
   hFWHM.Fill(qadb['FWHM'] * 0.5)
   # Difference
-  noiseComp = f'> RMS={qadb["rms"]:.1f} | Sigma={qadb["sigma"]:.1f} | FWHM/2={qadb["FWHM"]*0.5:.1f} |'
+  noiseComp = f'> ({ix}, {iy}) {qadb["type"]} pixel found - RMS={qadb["rms"]:.1f} | Sigma={qadb["sigma"]:.1f} | FWHM/2={qadb["FWHM"]*0.5:.1f} |'
   if(args.taf):
     qadb['taf'] = mapTAF.GetBinContent(ix, iy)
     hDiffTAF.Fill(qadb['sigma'] - qadb['taf'])
@@ -129,6 +148,22 @@ if(args.taf):
   lgd.AddEntry(hDiff, '#sigma - RMS')
   lgd.AddEntry(hDiffTAF, '#sigma - TAF')
   lgd.Draw('same')
+
+# Summary
+typeSum = [qadb['type'] for qadb in pixel_qa]
+print('>>> Summary of Noise QA <<\n'
+  f'Total:\t{len(typeSum)}\n'
+  f'Normal:\t{typeSum.count("normal")}\n'
+  f'RTS:\t{typeSum.count("RTS")}\n'
+  f'Hot:\t{typeSum.count("hot")}\n'
+)
+# Mask files for RTS and hot pixels
+with open(f'{args.output}_mask.txt','w') as maskFile:
+  for qadb in pixel_qa:
+    if(qadb['type'] == 'normal'): continue
+    ix, iy= qadb['pos']
+    maskFile.write(f'p\t{ix-1}\t{iy-1}\n')
+  print(f'[-] Mask file write to {maskFile.name} (RTS & hot)')
 
 cmd = input("Exit after checking plots: <type enter>")
 
