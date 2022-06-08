@@ -137,7 +137,7 @@ if(args.qa):
   for sigTag in SIGNAL_METHOD:
     h2qa[sigTag] = TH2F(f'h2qa_{sigTag}',f'Noise distribution (method={sigTag});Pixel ID;ADCu;#ev',
       NX*NY, -0.5, NX*NY-0.5,
-      400, -2000, 2000)
+      4000, -2000, 2000)
 def analogue_qa(evdata):
   for ix in range(NX):
     for iy in range(NY):
