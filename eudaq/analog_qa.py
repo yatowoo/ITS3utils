@@ -47,11 +47,11 @@ gSigma = ROOT.TGraph()
 hDiff = ROOT.TH1F('hdiff','Noise relative difference;#Delta_{rel}#sigma = (#sigma - ref)/#sigma;# pixels',100,-5,5)
 hFrac = ROOT.TH1F('hfrac','Fraction of counts in 3#sigma region;Fraction_{3#sigma};# pixels', 100, 0.01, 1.01)
 hChiFit = ROOT.TH1F('hchifit','Gaussian fitting quality;#chi^{2} / Ndf;# pixels', 1000, 0., 10.)
-hPedestalMap = ROOT.TH2D('hPedestalpl1','Map of pixel pedestal;Pxiel X;Pixel Y;#pixels',
+hPedestalMap = ROOT.TH2F('hPedestalpl1','Map of pixel pedestal;Pxiel X;Pixel Y;#pixels',
   64,-0.5,63.5,32,-0.5,31.5)
-hNoiseMap = ROOT.TH2D('hnoisepl1','Map of pixel noise amplitude;Pxiel X;Pixel Y;#pixels',
+hNoiseMap = ROOT.TH2F('hnoisepl1','Map of pixel noise amplitude;Pxiel X;Pixel Y;#pixels',
   64,-0.5,63.5,32,-0.5,31.5)
-hNoiseMapType = ROOT.TH2D('h2noisetype','Map of pixel noise type;Pxiel X;Pixel Y;#pixels',
+hNoiseMapType = ROOT.TH2F('h2noisetype','Map of pixel noise type;Pxiel X;Pixel Y;#pixels',
   64,-0.5,63.5,32,-0.5,31.5)
 
 # root_plot

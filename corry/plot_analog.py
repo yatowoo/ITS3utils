@@ -7,6 +7,7 @@ parser.add_argument('-f', '--file',help='Output histogram from corry', default="
 parser.add_argument('-o', '--output',help='Output file path', default='cluster.root')
 parser.add_argument('-p', '--print',help='Print in PDF file', default='cluster.pdf')
 parser.add_argument('-d', '--detector',help='Print in PDF file', default='CE65_4')
+parser.add_argument('-n', '--nrefs',help='Number of reference ALPIDE planes', default=4, type=int)
 
 args = parser.parse_args()
 
@@ -43,7 +44,7 @@ class Painter:
   def SetLayout(self, nx, ny):
     self.subPadNX = nx
     self.subPadNY = ny
-    ResetCanvas()
+    self.ResetCanvas()
   def GetLayout(self):
     return (self.subPadNX, self.subPadNY)
   def PrintCover(self, title = '', isBack = False):
@@ -210,6 +211,25 @@ dirTmp = corryHist.Get(clusterModule)
 if(dirTmp != None):
   paint.DrawClusteringAnalog(dirTmp.Get(detector))
 
+def DrawCorrelation(self, dirCorr):
+  # Init
+  self.pageName = f"Correlations"
+  detList = [detector] + [f'ALPIDE_{x}' for x in range(args.nrefs)]
+  for detName in detList:
+    dirDet = dirCorr.Get(detName)
+    if(dirDet == None): continue
+    self.DrawHist(dirDet.Get('hitmap_clusters'), option='colz')
+    self.DrawHist(dirDet.Get('correlationX'))
+    self.DrawHist(dirDet.Get('correlationY'))
+  # Output
+  self.NextPage()
+  return None
+CorryPainter.DrawCorrelation = DrawCorrelation
+
+dirTmp = corryHist.Get(corrModule)
+if(dirTmp != None):
+  paint.DrawCorrelation(dirTmp)
+
 def DrawAnalysisDUT(self, dirAna):
   # Init
   self.pageName = f"AnalysisDUT - {detector}"
@@ -241,7 +261,7 @@ if(dirTmp != None):
 
 def DrawTracking4D(self, dirAna):
   # Init
-  self.pageName = f"Tracking4D - {detector}"
+  self.pageName = f"Tracking4D - {args.nrefs} references"
   # Drawing
   h = dirAna.Get("tracksPerEvent")
   h.GetXaxis().SetRangeUser(-0.5,10)
@@ -249,6 +269,14 @@ def DrawTracking4D(self, dirAna):
   h = dirAna.Get("trackChi2ndof")
   h.GetXaxis().SetRangeUser(0,20)
   self.DrawHist(h, "trackChi2ndof", optLogY=True)
+  # Residuals in each plane
+  for iRef in range(args.nrefs):
+    refName = f'ALPIDE_{iRef}'
+    dirRef = dirAna.Get(refName).Get('global_residuals')
+    h = dirRef.Get('GlobalResidualsX')
+    self.DrawHist(h, 'GlobalResidualsX')
+    h = dirRef.Get('GlobalResidualsY')
+    self.DrawHist(h, 'GlobalResidualsY')
   # Output
   self.NextPage()
   return None
