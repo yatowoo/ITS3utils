@@ -112,6 +112,7 @@ clusterModule = "ClusteringAnalog"
 corrModule = "Correlations"
 analysisModule = "AnalysisDUT"
 trackingModule = "Tracking4D"
+associationModule = 'DUTAssociation'
 alignDUTModule = "AlignmentDUTResidual"
 detector = args.detector
 
@@ -277,6 +278,10 @@ def DrawTracking4D(self, dirAna):
     self.DrawHist(h, 'GlobalResidualsX')
     h = dirRef.Get('GlobalResidualsY')
     self.DrawHist(h, 'GlobalResidualsY')
+  # Interception in DUT
+  dirDUT = dirAna.Get(detector)
+  if(dirDUT != None):
+    self.DrawHist(dirDUT.Get('local_intersect'), option='colz')
   # Output
   self.NextPage()
   return None
@@ -285,6 +290,29 @@ CorryPainter.DrawTracking4D = DrawTracking4D
 dirTmp = corryHist.Get(trackingModule)
 if(dirTmp != None):
   paint.DrawTracking4D(dirTmp)
+
+def DrawDUTAssociation(self, dirAna):
+  # Init
+  self.pageName = f"DUTAssociation - {detector}"
+  # Drawing
+  htmp = dirAna.Get('hTrackDUT')
+  htmp.GetYaxis().SetRangeUser(-500, 500)
+  htmp.GetXaxis().SetRangeUser(-500, 500)
+  self.DrawHist(htmp, option='colz')
+  htmp = dirAna.Get('hResidualX')
+  htmp.GetXaxis().SetRangeUser(-500, 500)
+  self.DrawHist(htmp)
+  htmp = dirAna.Get('hResidualY')
+  htmp.GetXaxis().SetRangeUser(-500, 500)
+  self.DrawHist(htmp)
+  # Output
+  self.NextPage()
+  return None
+CorryPainter.DrawDUTAssociation = DrawDUTAssociation
+
+dirTmp = corryHist.Get(associationModule)
+if(dirTmp != None):
+  paint.DrawDUTAssociation(dirTmp.Get(detector))
 
 def DrawAlignmentDUT(self, dirAlign):
   # Init
@@ -301,14 +329,14 @@ def DrawAlignmentDUT(self, dirAlign):
   hSigX.Rebin(int(1. / hSigX.GetBinWidth(1))) #um
   self.NextPad()
   hSigX.Fit("gaus","","",-20,20)
-  hSigX.GetXaxis().SetRangeUser(-50,50)
+  hSigX.GetXaxis().SetRangeUser(-500,500)
   self.DrawHist(hSigX, "residualsX", samePad=True)
   # Residual Y
   hSigX = dirAlign.Get("residualsY")
   hSigX.Rebin(int(1. / hSigX.GetBinWidth(1))) #um
   self.NextPad()
   hSigX.Fit("gaus","","",-20,20)
-  hSigX.GetXaxis().SetRangeUser(-50,50)
+  hSigX.GetXaxis().SetRangeUser(-500,500)
   self.DrawHist(hSigX, "residualsY", samePad=True)
   self.NextPage("AlignmentDUTResidual")
   return None

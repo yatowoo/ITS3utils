@@ -92,7 +92,7 @@ def noise_fit(qadb):
   qadb['FWHM'] = qadb['noise'].GetBinCenter(halfRight) - qadb['noise'].GetBinCenter(halfLeft)
   fitRange = min(0.8 * qadb['FWHM'], 2*qadb['rms'])
   resultPtr = qadb['noise'].Fit(fitfcn,"SQ","",qadb['noise'].GetMean()-fitRange, qadb['noise'].GetMean()+fitRange)
-  drawRange = min(2000, fitRange * 30)
+  drawRange = min(2000, qadb['rms'] * 15)
   qadb['noise'].GetXaxis().SetRangeUser(-drawRange, drawRange)
   qadb['noise'].SetYTitle(f'# events / ({qadb["noise"].GetBinWidth(1):.0f} ADCu)')
   qadb['chi2'] = resultPtr.Chi2()
@@ -126,7 +126,7 @@ def noise_type(qadb):
   if(args.rts):
     if qadb['frac'] < args.frac: return 'RTS'
     if qadb['ndf'] > 0 and qadb['chi2'] / qadb['ndf'] > 3.0:
-      return 'RTS'
+      return 'bad'
   if qadb['rms'] < cut:
     return 'normal'
   elif qadb['sigma'] < cut:
@@ -146,6 +146,7 @@ else:
 
 # QA for each pixel
 pixel_qa = []
+cmd = ''
 for ipx in range(1,2048+1):
   pixel_qa.append({})
   qadb = pixel_qa[-1]
@@ -199,7 +200,10 @@ for ipx in range(1,2048+1):
     resultPtr.Print()
     print(noiseComp)
     ROOT.gPad.Update()
-    cmd = input()
+    if cmd == 'all':
+      ROOT.gPad.SaveAs(f'{args.output}_{qadb["type"]}_{qadb["id"]}.png')
+    else:
+      cmd = input()
     
 # Drawing and output
 
