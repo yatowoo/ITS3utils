@@ -4,8 +4,7 @@ import sys, os, json,argparse
 
 parser = argparse.ArgumentParser(description='Post-processing script for corryvreckan')
 parser.add_argument('-f', '--file',help='Output histogram from corry', default="analog-debug.root")
-parser.add_argument('-o', '--output',help='Output file path', default='cluster.root')
-parser.add_argument('-p', '--print',help='Print in PDF file', default='cluster.pdf')
+parser.add_argument('-p', '--print',help='Print in PDF file', default=None)
 parser.add_argument('-d', '--detector',help='Print in PDF file', default='CE65_4')
 parser.add_argument('-n', '--nrefs',help='Number of reference ALPIDE planes', default=4, type=int)
 
@@ -14,7 +13,8 @@ args = parser.parse_args()
 import ROOT
 from plot_util import *
 
-args.print = args.output.replace('.root','.pdf')
+if(args.print is None):
+  args.print = args.file.replace('.root','.pdf')
 
 ALICEStyle()
 ROOT.gStyle.SetLineWidth(1)
