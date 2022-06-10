@@ -34,10 +34,21 @@ class Painter:
     self.hasCover = False
     self.hasBackCover = False
     # Dump
-    self.root_obj = []         # Temp storage to avoid GC
+    self.root_objs = []         # Temp storage to avoid GC
   def __del__(self):
     if(self.hasCover and not self.hasBackCover):
       self.PrintBackCover('')
+  def new_obj(self, obj):
+    self.root_objs.append(obj)
+    return self.root_objs[-1]
+  def add_text(self, pave : ROOT.TPaveText, s : str, color=None, size=0.04, align=11, font=42):
+    text = pave.AddText(s)
+    text.SetTextAlign(align)
+    text.SetTextSize(size)
+    text.SetTextFont(font)
+    if(color):
+      text.SetTextColor(color)
+    return text
   def ResetCanvas(self):
     self.canvas.Clear()
     self.canvas.Divide(self.subPadNX, self.subPadNY)
@@ -81,7 +92,29 @@ class Painter:
     self.canvas.cd(self.padIndex)
     ROOT.gPad.SetMargin(0.15, 0.02, 0.15, 0.1)
   # Drawing - Histograms
-  def DrawHist(self, htmp, title="", option="", optStat=True, samePad=False, optLogY=False):
+  def optimise_hist_gaus(self, hist, scale=1):
+    peak = hist.GetMaximum()
+    mean = hist.GetMean()
+    rms = hist.GetRMS()
+    halfLeft = hist.FindFirstBinAbove(peak/2.)
+    halfRight = hist.FindLastBinAbove(peak/2.)
+    fwhm = hist.GetBinCenter(halfRight) - hist.GetBinCenter(halfLeft)
+    fitRange = min(5 * rms, 2 * fwhm)
+    resultPtr = hist.Fit('gaus','SQ','', mean - fitRange, mean + fitRange)
+    params = resultPtr.GetParams()
+    drawRange = min(15 * rms, 10 * params[2])
+    hist.GetXaxis().SetRangeUser(mean - drawRange, mean + drawRange)
+    # Draw info
+    pave = self.new_obj(ROOT.TPaveText(0.18, 0.55, 0.45, 0.85,'NDC'))
+    pave.SetFillColor(ROOT.kWhite)
+    self.add_text(pave, f'mean (#mu) = {params[1] * scale:.1f}')
+    self.add_text(pave, f'#sigma = {params[2] * scale:.1f}')
+    self.add_text(pave, f'#chi^{{2}} / NDF = {resultPtr.Chi2():.1f} / {resultPtr.Ndf()}')
+    self.add_text(pave, f'RMS = {rms * scale:.1f}')
+    self.add_text(pave, f'FWHM = {fwhm * scale:.1f}')
+    pave.Draw('same')
+    return hist
+  def DrawHist(self, htmp, title="", option="", optStat=True, samePad=False, optLogY=False, optGaus=False, scale=1):
     ROOT.gStyle.SetOptStat(optStat)
     if(title == ""):
       title = htmp.GetTitle()
@@ -93,6 +126,7 @@ class Painter:
       zmax = htmp.GetBinContent(htmp.GetMaximumBin())
       htmp.GetZaxis().SetRangeUser(0.0 * zmax, 1.1 * zmax)
     htmp.Draw(option)
+    if(optGaus): self.optimise_hist_gaus(htmp, scale)
 class CorryPainter(Painter):
   def __init__(self, canvas, printer, **kwargs):
     super().__init__(canvas, printer, **kwargs)
@@ -220,8 +254,8 @@ def DrawCorrelation(self, dirCorr):
     dirDet = dirCorr.Get(detName)
     if(dirDet == None): continue
     self.DrawHist(dirDet.Get('hitmap_clusters'), option='colz')
-    self.DrawHist(dirDet.Get('correlationX'))
-    self.DrawHist(dirDet.Get('correlationY'))
+    self.DrawHist(dirDet.Get('correlationX'), optGaus=True, scale=1000)
+    self.DrawHist(dirDet.Get('correlationY'), optGaus=True, scale=1000)
   # Output
   self.NextPage()
   return None
@@ -240,17 +274,11 @@ def DrawAnalysisDUT(self, dirAna):
   # residualsX
   hSigX = dirAna.Get("global_residuals").Get("residualsX")
   hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
-  self.NextPad()
-  hSigX.Fit("gaus","","",-50,50)
-  hSigX.GetXaxis().SetRangeUser(-50,50)
-  self.DrawHist(hSigX, "clusterSize", samePad=True)
+  self.DrawHist(hSigX, optGaus=True)
   # residualsY
   hSigX = dirAna.Get("global_residuals").Get("residualsY")
   hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
-  self.NextPad()
-  hSigX.Fit("gaus","","",-50,50)
-  hSigX.GetXaxis().SetRangeUser(-50,50)
-  self.DrawHist(hSigX, "clusterSize", samePad=True)
+  self.DrawHist(hSigX, optGaus=True)
   # Output
   self.NextPage()
   return None
@@ -275,9 +303,9 @@ def DrawTracking4D(self, dirAna):
     refName = f'ALPIDE_{iRef}'
     dirRef = dirAna.Get(refName).Get('global_residuals')
     h = dirRef.Get('GlobalResidualsX')
-    self.DrawHist(h, 'GlobalResidualsX')
+    self.DrawHist(h, 'GlobalResidualsX', optGaus=True, scale=1000)
     h = dirRef.Get('GlobalResidualsY')
-    self.DrawHist(h, 'GlobalResidualsY')
+    self.DrawHist(h, 'GlobalResidualsY', optGaus=True, scale=1000)
   # Interception in DUT
   dirDUT = dirAna.Get(detector)
   if(dirDUT != None):
@@ -300,11 +328,9 @@ def DrawDUTAssociation(self, dirAna):
   htmp.GetXaxis().SetRangeUser(-500, 500)
   self.DrawHist(htmp, option='colz')
   htmp = dirAna.Get('hResidualX')
-  htmp.GetXaxis().SetRangeUser(-500, 500)
-  self.DrawHist(htmp)
+  self.DrawHist(htmp, optGaus=True)
   htmp = dirAna.Get('hResidualY')
-  htmp.GetXaxis().SetRangeUser(-500, 500)
-  self.DrawHist(htmp)
+  self.DrawHist(htmp, optGaus=True)
   # Output
   self.NextPage()
   return None
@@ -327,17 +353,11 @@ def DrawAlignmentDUT(self, dirAlign):
   # Residual X
   hSigX = dirAlign.Get("residualsX")
   hSigX.Rebin(int(1. / hSigX.GetBinWidth(1))) #um
-  self.NextPad()
-  hSigX.Fit("gaus","","",-20,20)
-  hSigX.GetXaxis().SetRangeUser(-500,500)
-  self.DrawHist(hSigX, "residualsX", samePad=True)
+  self.DrawHist(hSigX, "residualsX", optGaus=True)
   # Residual Y
   hSigX = dirAlign.Get("residualsY")
   hSigX.Rebin(int(1. / hSigX.GetBinWidth(1))) #um
-  self.NextPad()
-  hSigX.Fit("gaus","","",-20,20)
-  hSigX.GetXaxis().SetRangeUser(-500,500)
-  self.DrawHist(hSigX, "residualsY", samePad=True)
+  self.DrawHist(hSigX, "residualsX", optGaus=True)
   self.NextPage("AlignmentDUTResidual")
   return None
 CorryPainter.DrawAlignmentDUT = DrawAlignmentDUT
