@@ -8,6 +8,9 @@ parser.add_argument('-f', '--file',help='Output histogram from corry', default="
 parser.add_argument('-p', '--print',help='Print in PDF file', default=None)
 parser.add_argument('-d', '--detector',help='Print in PDF file', default='CE65_4')
 parser.add_argument('-n', '--nrefs',help='Number of reference ALPIDE planes', default=4, type=int)
+parser.add_argument('--charge-max', dest='CHARGE_MAX', help='Max charge for histograms binning', default=5000, type=float)
+parser.add_argument('--charge-binwidth',dest='CHARGE_BINWIDTH', help='Charge bin width for histograms binning', default=25, type=float)
+parser.add_argument('--fit-range',dest='GAUS_FIT', help='Fitting range for gaussian distribution, ratio as FWHM', default=1.0, type=float)
 
 args = parser.parse_args()
 
@@ -113,12 +116,20 @@ class Painter:
     rms = hist.GetRMS()
     halfLeft = hist.FindFirstBinAbove(peak/2.)
     halfRight = hist.FindLastBinAbove(peak/2.)
+    center = 0.5 * (hist.GetBinCenter(halfRight) + hist.GetBinCenter(halfLeft))
     fwhm = hist.GetBinCenter(halfRight) - hist.GetBinCenter(halfLeft)
-    fitRange = min(5 * rms, 1.0 * fwhm)
-    resultPtr = hist.Fit('gaus','SQ','', mean - fitRange, mean + fitRange)
-    params = resultPtr.GetParams()
+    if fwhm < 2 * hist.GetBinWidth(1):
+      print(f'[X] Warning  - FWHM too narrow {center = }, {fwhm = }, {rms = }, {peak = }')
+      return None
+    fitRange = min(5 * rms, args.GAUS_FIT * fwhm)
+    resultPtr = hist.Fit('gaus','SQ','', center - fitRange, center + fitRange)
+    try:
+      params = resultPtr.GetParams()
+    except ReferenceError:
+      print(f'[X] Warning  - Fitting failed with {center = }, {fwhm = }, {rms = }, {peak = }')
+      return None
     drawRange = min(15 * rms, 10 * params[2])
-    hist.GetXaxis().SetRangeUser(mean - drawRange, mean + drawRange)
+    hist.GetXaxis().SetRangeUser(center - drawRange, center + drawRange)
     # Draw info
     pave = self.new_obj(ROOT.TPaveText(0.18, 0.55, 0.45, 0.85,'NDC'))
     pave.SetFillColor(ROOT.kWhite)
@@ -128,7 +139,7 @@ class Painter:
     self.add_text(pave, f'RMS = {rms * scale:.1f}')
     self.add_text(pave, f'FWHM = {fwhm * scale:.1f}')
     pave.Draw('same')
-    return hist
+    return resultPtr
   def DrawHist(self, htmp, title="", option="", optStat=False, samePad=False, optLogY=False, optGaus=False, scale=1):
     ROOT.gStyle.SetOptStat(optStat)
     if(title == ""):
@@ -173,7 +184,7 @@ def DrawClusteringAnalog(self, dirCluster):
   self.pageName = f"ClusteringAnalog - {detector}"
   # Drawing
   hMap = dirCluster.Get("clusterPositionLocal")
-  self.DrawHist(hMap, "Cluster neighbours charge","colz")
+  self.DrawHist(hMap, option="colz")
   self.draw_text(0.55, 0.92, 0.95, 0.98, f'Total N_{{cluster}} : {hMap.GetEntries():.0f}', font=62, size=0.05).Draw("same")
 
   hSize = dirCluster.Get("clusterSize")
@@ -181,23 +192,23 @@ def DrawClusteringAnalog(self, dirCluster):
   self.DrawHist(hSize, "clusterSize", optLogY=True, optStat=True)
 
   hSize = dirCluster.Get("clusterCharge")
-  hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-  hSize.GetXaxis().SetRangeUser(-1000,20000)
+  hSize.Rebin(int(args.CHARGE_BINWIDTH / hSize.GetBinWidth(1)))
+  hSize.GetXaxis().SetRangeUser(-0.05 * args.CHARGE_MAX,args.CHARGE_MAX)
   self.DrawHist(hSize, "clusterSize", optLogY=True)
 
   hSize = dirCluster.Get("clusterSeedCharge")
-  hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-  hSize.GetXaxis().SetRangeUser(0,12000)
+  hSize.Rebin(int(args.CHARGE_BINWIDTH  / hSize.GetBinWidth(1)))
+  hSize.GetXaxis().SetRangeUser(0,args.CHARGE_MAX)
   self.DrawHist(hSize, "clusterSize", optLogY=True)
 
   hSize = dirCluster.Get("clusterNeighboursCharge")
-  hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-  hSize.GetXaxis().SetRangeUser(-1000,5000)
+  hSize.Rebin(int(args.CHARGE_BINWIDTH  / hSize.GetBinWidth(1)))
+  hSize.GetXaxis().SetRangeUser(-0.05 * args.CHARGE_MAX, args.CHARGE_MAX)
   self.DrawHist(hSize, "clusterSize", optLogY=True)
 
   hSize = dirCluster.Get("clusterNeighboursChargeSum")
-  hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-  hSize.GetXaxis().SetRangeUser(-100,10000)
+  hSize.Rebin(int(args.CHARGE_BINWIDTH  / hSize.GetBinWidth(1)))
+  hSize.GetXaxis().SetRangeUser(-0.05 * args.CHARGE_MAX,args.CHARGE_MAX)
   self.DrawHist(hSize, "Cluster neighbours charge", optLogY=True)
 
   hRatio = dirCluster.Get("clusterChargeRatio")
@@ -221,7 +232,8 @@ def DrawClusteringAnalog(self, dirCluster):
   self.DrawHist(hSize, "clusterNeighboursSNR", optLogY=True)
 
   hMap = dirCluster.Get("clusterSeed_Neighbours")
-  hMap.GetYaxis().SetRangeUser(-1000,10000)
+  hMap.GetXaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
+  hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX,args.CHARGE_MAX)
   self.DrawHist(hMap, "clusterSeed_Neighbours", "colz", False)
 
   hMap = dirCluster.Get("clusterSeed_NeighboursSNR")
@@ -229,19 +241,22 @@ def DrawClusteringAnalog(self, dirCluster):
   self.DrawHist(hMap, "clusterSeed_NeighboursSNR", "colz", False)
 
   hMap = dirCluster.Get("clusterSeed_NeighboursSum")
-  hMap.GetYaxis().SetRangeUser(-1000,10000)
+  hMap.GetXaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
+  hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
   self.DrawHist(hMap, "clusterSeed_NeighboursSum", "colz", False)
 
   hMap = dirCluster.Get("clusterSeed_Cluster")
-  hMap.GetYaxis().SetRangeUser(-1000,10000)
+  hMap.GetXaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
+  hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX,args.CHARGE_MAX)
   self.DrawHist(hMap, "clusterSeed_Cluster", "colz", False)
 
   hMap = dirCluster.Get("clusterSeedSNR_Cluster")
+  hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
   self.DrawHist(hMap, "clusterSeedSNR_Cluster", "colz", False)
 
   hMap = dirCluster.Get("clusterChargeShape")
   hMap.GetXaxis().SetRangeUser(-5,5)
-  hMap.GetYaxis().SetRangeUser(-1000,10000)
+  hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
   self.DrawHist(hMap, "clusterChargeShape", "colz", False)
 
   hMap = dirCluster.Get("clusterChargeShapeSNR")
@@ -250,7 +265,7 @@ def DrawClusteringAnalog(self, dirCluster):
 
   hMap = dirCluster.Get("clusterChargeShapeRatio")
   hMap.GetXaxis().SetRangeUser(-5,5)
-  hMap.GetYaxis().SetRangeUser(-0.1,1.1)
+  hMap.GetYaxis().SetRangeUser(-0.05,1.1)
   hPx = hMap.ProfileX() # TODO: Re-normalized with counts in seed
   hPx.SetLineColor(ROOT.kRed)
   hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
@@ -392,12 +407,12 @@ def DrawAnalysisDUT(self, dirAna):
   self.DrawHist(hMap, "clusterSize", "colz")
   # Charge
   hCharge = dirAna.Get('clusterChargeAssociated')
-  hCharge.Rebin(int(10. / hCharge.GetBinWidth(1)))
-  hCharge.GetXaxis().SetRangeUser(0,5000)
+  hCharge.Rebin(int(args.CHARGE_BINWIDTH / hCharge.GetBinWidth(1)))
+  hCharge.GetXaxis().SetRangeUser(0,args.CHARGE_MAX)
   self.DrawHist(hCharge)
   hCharge = dirAna.Get('seedChargeAssociated')
-  hCharge.Rebin(int(10. / hCharge.GetBinWidth(1)))
-  hCharge.GetXaxis().SetRangeUser(0,5000)
+  hCharge.Rebin(int(args.CHARGE_BINWIDTH / hCharge.GetBinWidth(1)))
+  hCharge.GetXaxis().SetRangeUser(0,args.CHARGE_MAX)
   self.DrawHist(hCharge)
   # residualsX
   hSigX = dirAna.Get("global_residuals").Get("residualsX")
