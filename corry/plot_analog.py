@@ -29,8 +29,10 @@ def simple_efficiency(nsel, nall):
   if(nall < 1.):
     return (0., 0.)
   eff = float(nsel) / float(nall)
-  error = eff * math.sqrt(1/float(nsel)+1/float(nall))
-  return (eff, error)
+  lowerErrorEff = eff - ROOT.TEfficiency.ClopperPearson(nall, nsel, 0.683, False)
+  upperErrorEff = ROOT.TEfficiency.ClopperPearson(nall, nsel, 0.683, True) - eff
+  error = (upperErrorEff + lowerErrorEff) / 2.
+  return (eff, error, lowerErrorEff, upperErrorEff)
 
 class Painter:
   def __init__(self, canvas, printer, **kwargs):
@@ -392,15 +394,16 @@ def DrawAnalysisDUT(self, dirAna):
   nTrackCutMask = int(hCut.GetBinContent(2))
   nTrackPass = int(hCut.GetBinContent(7))
   nAssociatedCluster = int(hCut.GetBinContent(8))
-  eff, error = simple_efficiency(nAssociatedCluster, nTrackPass)
-  pave = self.draw_text(0.3, 0.2, 0.7, 0.9, f'All tracks N_{{trk}} : {nTrack:.0f}', font=62, size=0.05)
+  eff, error, lerr, uerr = simple_efficiency(nAssociatedCluster, nTrackPass)
+  pave = self.draw_text(0.15, 0.1, 0.7, 0.9)
+  self.add_text(pave, f'Raw efficiency : {eff * 100:.1f}^{{+{uerr * 100:.1f}}}_{{-{lerr * 100:.1f}}} %', font=62, size=0.08)
+  self.add_text(pave, f'All tracks N_{{trk}} : {nTrack:.0f}', font=62, size=0.05)
   self.add_text(pave, f'- #chi^{{2}} / Ndf > 3 : -{nTrackCutChi2}')
   self.add_text(pave, f'- outside DUT : -{nTrackCutDUT}')
   self.add_text(pave, f'- outside ROI : -{nTrackCutROI}')
   self.add_text(pave, f'- close to mask : -{nTrackCutMask}')
   self.add_text(pave, f'Track pass selectoin : {nTrackPass}', font=62, size=0.05)
   self.add_text(pave, f'Associated clusters N_{{assoc. cls.}} : {nAssociatedCluster}', font=62, size=0.05)
-  self.add_text(pave, f'Raw efficiency : {eff * 100:.1f} +/- {error * 100:.1f}%', font=62, size=0.06)
   pave.Draw()
   # Drawing  
   hMap = dirAna.Get("clusterMapAssoc")
