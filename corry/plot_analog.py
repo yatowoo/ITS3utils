@@ -1,6 +1,7 @@
 #!/bin/env python3
 
 import sys, os, json,argparse
+import math
 
 parser = argparse.ArgumentParser(description='Post-processing script for corryvreckan')
 parser.add_argument('-f', '--file',help='Output histogram from corry', default="analog-debug.root")
@@ -19,7 +20,14 @@ if(args.print is None):
 ALICEStyle()
 ROOT.gStyle.SetLineWidth(1)
 ROOT.gStyle.SetOptTitle(1)
-ROOT.gStyle.SetOptStat(1)
+ROOT.gStyle.SetOptStat(0)
+
+def simple_efficiency(nsel, nall):
+  if(nall < 1.):
+    return (0., 0.)
+  eff = float(nsel) / float(nall)
+  error = eff * math.sqrt(1/float(nsel)+1/float(nall))
+  return (eff, error)
 
 class Painter:
   def __init__(self, canvas, printer, **kwargs):
@@ -49,6 +57,13 @@ class Painter:
     if(color):
       text.SetTextColor(color)
     return text
+  def draw_text(self, xlow=0.25, ylow=0.4, xup=0.75, yup=0.6, text = '', size=0.04, font=42):
+    pave = self.new_obj(ROOT.TPaveText(xlow, ylow, xup, yup, "brNDC"))
+    pave.SetBorderSize(0)
+    pave.SetFillColor(ROOT.kWhite)
+    if(text != ''):
+      self.add_text(pave, text, size=size, font=font)
+    return pave
   def ResetCanvas(self):
     self.canvas.Clear()
     self.canvas.Divide(self.subPadNX, self.subPadNY)
@@ -99,7 +114,7 @@ class Painter:
     halfLeft = hist.FindFirstBinAbove(peak/2.)
     halfRight = hist.FindLastBinAbove(peak/2.)
     fwhm = hist.GetBinCenter(halfRight) - hist.GetBinCenter(halfLeft)
-    fitRange = min(5 * rms, 2 * fwhm)
+    fitRange = min(5 * rms, 1.0 * fwhm)
     resultPtr = hist.Fit('gaus','SQ','', mean - fitRange, mean + fitRange)
     params = resultPtr.GetParams()
     drawRange = min(15 * rms, 10 * params[2])
@@ -114,7 +129,7 @@ class Painter:
     self.add_text(pave, f'FWHM = {fwhm * scale:.1f}')
     pave.Draw('same')
     return hist
-  def DrawHist(self, htmp, title="", option="", optStat=True, samePad=False, optLogY=False, optGaus=False, scale=1):
+  def DrawHist(self, htmp, title="", option="", optStat=False, samePad=False, optLogY=False, optGaus=False, scale=1):
     ROOT.gStyle.SetOptStat(optStat)
     if(title == ""):
       title = htmp.GetTitle()
@@ -125,6 +140,9 @@ class Painter:
     if(option == "colz"):
       zmax = htmp.GetBinContent(htmp.GetMaximumBin())
       htmp.GetZaxis().SetRangeUser(0.0 * zmax, 1.1 * zmax)
+    if(htmp.ClassName().startswith('TH')):
+      htmp.SetTitleSize(0.08, "XY")
+      htmp.SetTitleOffset(0.8, "XY")
     htmp.Draw(option)
     if(optGaus): self.optimise_hist_gaus(htmp, scale)
 class CorryPainter(Painter):
@@ -156,14 +174,15 @@ def DrawClusteringAnalog(self, dirCluster):
   # Drawing
   hMap = dirCluster.Get("clusterPositionLocal")
   self.DrawHist(hMap, "Cluster neighbours charge","colz")
+  self.draw_text(0.55, 0.92, 0.95, 0.98, f'Total N_{{cluster}} : {hMap.GetEntries():.0f}', font=62, size=0.05).Draw("same")
 
   hSize = dirCluster.Get("clusterSize")
-  hSize.GetXaxis().SetRangeUser(0,30)
-  self.DrawHist(hSize, "clusterSize", optLogY=True)
+  hSize.GetXaxis().SetRangeUser(0,25)
+  self.DrawHist(hSize, "clusterSize", optLogY=True, optStat=True)
 
   hSize = dirCluster.Get("clusterCharge")
   hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-  hSize.GetXaxis().SetRangeUser(-5000,20000)
+  hSize.GetXaxis().SetRangeUser(-1000,20000)
   self.DrawHist(hSize, "clusterSize", optLogY=True)
 
   hSize = dirCluster.Get("clusterSeedCharge")
@@ -173,12 +192,12 @@ def DrawClusteringAnalog(self, dirCluster):
 
   hSize = dirCluster.Get("clusterNeighboursCharge")
   hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-  hSize.GetXaxis().SetRangeUser(-5000,5000)
+  hSize.GetXaxis().SetRangeUser(-1000,5000)
   self.DrawHist(hSize, "clusterSize", optLogY=True)
 
   hSize = dirCluster.Get("clusterNeighboursChargeSum")
   hSize.Rebin(int(100. / hSize.GetBinWidth(1)))
-  hSize.GetXaxis().SetRangeUser(-5000,10000)
+  hSize.GetXaxis().SetRangeUser(-100,10000)
   self.DrawHist(hSize, "Cluster neighbours charge", optLogY=True)
 
   hRatio = dirCluster.Get("clusterChargeRatio")
@@ -195,25 +214,26 @@ def DrawClusteringAnalog(self, dirCluster):
   hSize = dirCluster.Get("clusterSeedSNR")
   hSize.Rebin(int(0.5 / hSize.GetBinWidth(1)))
   hSize.GetXaxis().SetRangeUser(0,100)
-  self.DrawHist(hSize, "clusterSeedSNR")
+  self.DrawHist(hSize, "clusterSeedSNR", optLogY=True)
 
   hSize = dirCluster.Get("clusterNeighboursSNR")
-  hSize.GetXaxis().SetRangeUser(-10,10)
-  self.DrawHist(hSize, "clusterNeighboursSNR")
+  hSize.GetXaxis().SetRangeUser(-3,20)
+  self.DrawHist(hSize, "clusterNeighboursSNR", optLogY=True)
 
   hMap = dirCluster.Get("clusterSeed_Neighbours")
-  hMap.GetYaxis().SetRangeUser(-4000,10000)
+  hMap.GetYaxis().SetRangeUser(-1000,10000)
   self.DrawHist(hMap, "clusterSeed_Neighbours", "colz", False)
 
   hMap = dirCluster.Get("clusterSeed_NeighboursSNR")
+  hMap.GetYaxis().SetRangeUser(-1,10)
   self.DrawHist(hMap, "clusterSeed_NeighboursSNR", "colz", False)
 
   hMap = dirCluster.Get("clusterSeed_NeighboursSum")
-  hMap.GetYaxis().SetRangeUser(-4000,10000)
+  hMap.GetYaxis().SetRangeUser(-1000,10000)
   self.DrawHist(hMap, "clusterSeed_NeighboursSum", "colz", False)
 
   hMap = dirCluster.Get("clusterSeed_Cluster")
-  hMap.GetYaxis().SetRangeUser(-4000,10000)
+  hMap.GetYaxis().SetRangeUser(-1000,10000)
   self.DrawHist(hMap, "clusterSeed_Cluster", "colz", False)
 
   hMap = dirCluster.Get("clusterSeedSNR_Cluster")
@@ -221,6 +241,7 @@ def DrawClusteringAnalog(self, dirCluster):
 
   hMap = dirCluster.Get("clusterChargeShape")
   hMap.GetXaxis().SetRangeUser(-5,5)
+  hMap.GetYaxis().SetRangeUser(-1000,10000)
   self.DrawHist(hMap, "clusterChargeShape", "colz", False)
 
   hMap = dirCluster.Get("clusterChargeShapeSNR")
@@ -229,7 +250,7 @@ def DrawClusteringAnalog(self, dirCluster):
 
   hMap = dirCluster.Get("clusterChargeShapeRatio")
   hMap.GetXaxis().SetRangeUser(-5,5)
-  hMap.GetYaxis().SetRangeUser(-0.5,1.1)
+  hMap.GetYaxis().SetRangeUser(-0.1,1.1)
   hPx = hMap.ProfileX() # TODO: Re-normalized with counts in seed
   hPx.SetLineColor(ROOT.kRed)
   hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
@@ -264,29 +285,6 @@ CorryPainter.DrawCorrelation = DrawCorrelation
 dirTmp = corryHist.Get(corrModule)
 if(dirTmp != None):
   paint.DrawCorrelation(dirTmp)
-
-def DrawAnalysisDUT(self, dirAna):
-  # Init
-  self.pageName = f"AnalysisDUT - {detector}"
-  # Drawing  
-  hMap = dirAna.Get("clusterMapAssoc")
-  self.DrawHist(hMap, "clusterSize", "colz")
-  # residualsX
-  hSigX = dirAna.Get("global_residuals").Get("residualsX")
-  hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
-  self.DrawHist(hSigX, optGaus=True)
-  # residualsY
-  hSigX = dirAna.Get("global_residuals").Get("residualsY")
-  hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
-  self.DrawHist(hSigX, optGaus=True)
-  # Output
-  self.NextPage()
-  return None
-CorryPainter.DrawAnalysisDUT = DrawAnalysisDUT
-
-dirTmp = corryHist.Get(analysisModule)
-if(dirTmp != None):
-  paint.DrawAnalysisDUT(dirTmp.Get(detector))
 
 def DrawTracking4D(self, dirAna):
   # Init
@@ -365,6 +363,58 @@ CorryPainter.DrawAlignmentDUT = DrawAlignmentDUT
 dirTmp = corryHist.Get(alignDUTModule)
 if(dirTmp != None):
   paint.DrawAlignmentDUT(dirTmp.Get(detector))
+
+def DrawAnalysisDUT(self, dirAna):
+  # Init
+  self.pageName = f"AnalysisDUT - {detector}"
+  # Summary pad
+  hCut = dirAna.Get("hCutHisto")
+  self.NextPad()
+  nTrack = int(hCut.GetBinContent(1))
+  nTrackCutChi2 = int(hCut.GetBinContent(2))
+  nTrackCutDUT = int(hCut.GetBinContent(3))
+  nTrackCutROI = int(hCut.GetBinContent(4))
+  nTrackCutMask = int(hCut.GetBinContent(2))
+  nTrackPass = int(hCut.GetBinContent(7))
+  nAssociatedCluster = int(hCut.GetBinContent(8))
+  eff, error = simple_efficiency(nAssociatedCluster, nTrackPass)
+  pave = self.draw_text(0.3, 0.2, 0.7, 0.9, f'All tracks N_{{trk}} : {nTrack:.0f}', font=62, size=0.05)
+  self.add_text(pave, f'- #chi^{{2}} / Ndf > 3 : -{nTrackCutChi2}')
+  self.add_text(pave, f'- outside DUT : -{nTrackCutDUT}')
+  self.add_text(pave, f'- outside ROI : -{nTrackCutROI}')
+  self.add_text(pave, f'- close to mask : -{nTrackCutMask}')
+  self.add_text(pave, f'Track pass selectoin : {nTrackPass}', font=62, size=0.05)
+  self.add_text(pave, f'Associated clusters N_{{assoc. cls.}} : {nAssociatedCluster}', font=62, size=0.05)
+  self.add_text(pave, f'Raw efficiency : {eff * 100:.1f} +/- {error * 100:.1f}%', font=62, size=0.06)
+  pave.Draw()
+  # Drawing  
+  hMap = dirAna.Get("clusterMapAssoc")
+  self.DrawHist(hMap, "clusterSize", "colz")
+  # Charge
+  hCharge = dirAna.Get('clusterChargeAssociated')
+  hCharge.Rebin(int(10. / hCharge.GetBinWidth(1)))
+  hCharge.GetXaxis().SetRangeUser(0,5000)
+  self.DrawHist(hCharge)
+  hCharge = dirAna.Get('seedChargeAssociated')
+  hCharge.Rebin(int(10. / hCharge.GetBinWidth(1)))
+  hCharge.GetXaxis().SetRangeUser(0,5000)
+  self.DrawHist(hCharge)
+  # residualsX
+  hSigX = dirAna.Get("global_residuals").Get("residualsX")
+  hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
+  self.DrawHist(hSigX, optGaus=True)
+  # residualsY
+  hSigX = dirAna.Get("global_residuals").Get("residualsY")
+  hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
+  self.DrawHist(hSigX, optGaus=True)
+  # Output
+  self.NextPage()
+  return None
+CorryPainter.DrawAnalysisDUT = DrawAnalysisDUT
+
+dirTmp = corryHist.Get(analysisModule)
+if(dirTmp != None):
+  paint.DrawAnalysisDUT(dirTmp.Get(detector))
 
 paint.PrintBackCover()
 corryHist.Close()
