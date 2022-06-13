@@ -11,6 +11,7 @@ parser.add_argument('-n', '--nrefs',help='Number of reference ALPIDE planes', de
 parser.add_argument('--charge-max', dest='CHARGE_MAX', help='Max charge for histograms binning', default=5000, type=float)
 parser.add_argument('--charge-binwidth',dest='CHARGE_BINWIDTH', help='Charge bin width for histograms binning', default=25, type=float)
 parser.add_argument('--fit-range',dest='GAUS_FIT', help='Fitting range for gaussian distribution, ratio as FWHM', default=1.0, type=float)
+parser.add_argument('--noisy-freq', dest='NOISY_FREQUENCY', help='Threshold of hit frequency to identify noisy pixels', default=0.001, type=float)
 
 args = parser.parse_args()
 
@@ -19,6 +20,8 @@ from plot_util import *
 
 if(args.print is None):
   args.print = args.file.replace('.root','.pdf')
+elif not args.print.endswith('.pdf'):
+  args.print = args.print + '.pdf'
 
 ALICEStyle()
 ROOT.gStyle.SetLineWidth(1)
@@ -142,7 +145,7 @@ class Painter:
     self.add_text(pave, f'FWHM = {fwhm * scale:.1f}')
     pave.Draw('same')
     return resultPtr
-  def DrawHist(self, htmp, title="", option="", optStat=False, samePad=False, optLogY=False, optGaus=False, scale=1):
+  def DrawHist(self, htmp, title="", option="", optStat=False, samePad=False, optLogY=False, optGaus=False, scale=1, **kwargs):
     ROOT.gStyle.SetOptStat(optStat)
     if(title == ""):
       title = htmp.GetTitle()
@@ -158,6 +161,7 @@ class Painter:
       htmp.SetTitleOffset(0.8, "XY")
     htmp.Draw(option)
     if(optGaus): self.optimise_hist_gaus(htmp, scale)
+    if(kwargs.get('optLogX') == True): ROOT.gPad.SetLogx(True)
 class CorryPainter(Painter):
   def __init__(self, canvas, printer, **kwargs):
     super().__init__(canvas, printer, **kwargs)
@@ -181,6 +185,13 @@ associationModule = 'DUTAssociation'
 alignDUTModule = "AlignmentDUTResidual"
 detector = args.detector
 
+def DrawEventLoaderEUDAQ2(self, dirEvent):
+  htmp = dirEvent.Get('eudaqEventStart')
+  self.N_EVENT = htmp.GetEntries()
+  return None
+CorryPainter.DrawEventLoaderEUDAQ2 = DrawEventLoaderEUDAQ2
+paint.DrawEventLoaderEUDAQ2(corryHist.Get(eventModule).Get('ALPIDE_0'))
+
 def DrawClusteringAnalog(self, dirCluster):
   # Init
   self.pageName = f"ClusteringAnalog - {detector}"
@@ -188,6 +199,29 @@ def DrawClusteringAnalog(self, dirCluster):
   hMap = dirCluster.Get("clusterPositionLocal")
   self.DrawHist(hMap, option="colz")
   self.draw_text(0.55, 0.92, 0.95, 0.98, f'Total N_{{cluster}} : {hMap.GetEntries():.0f}', font=62, size=0.05).Draw("same")
+    # Noisy pixel
+  hHitFreq = self.new_obj(ROOT.TH1F('hHitFreq','Hitmap by cluster (frequency);Frequency;# pixels',10000,0.,1.0))
+  pavePixel = self.draw_text(0.7, 0.6, 0.85, 0.80)
+  nNoisy = 0
+  print('>>> Mask creation by output of ClusteringAnalog')
+  for iy in range(1,hMap.GetNbinsY()+1):
+    for ix in range(1,hMap.GetNbinsX()+1):
+      clusterCount = hMap.GetBinContent(ix, iy)
+      clusterFreq = clusterCount / self.N_EVENT
+      hHitFreq.Fill(clusterFreq)
+      if(clusterFreq > args.NOISY_FREQUENCY):
+        self.add_text(pavePixel, f'({ix-1}, {iy-1}) - {clusterFreq:.1e} [{clusterCount:.0f}]', size=0.025)
+        nNoisy += 1
+        print(f'p\t{ix-1}\t{iy-1}')
+  self.DrawHist(hHitFreq, optLogY=True, optLogX=True)
+  hHitFreq.SaveAs('noisy_mask.root') # DEBUG
+  nNoHits = hHitFreq.GetBinContent(hHitFreq.FindBin(0.))
+  paveStat = self.draw_text(0.2, 0.2, 0.42, 0.30)
+  self.add_text(paveStat, f'Event loaded : {self.N_EVENT:.0f}')
+  self.add_text(paveStat, f'No hits pixels : {nNoHits:.0f}')
+  paveStat.Draw('same')
+  self.draw_text(0.5, 0.80, 0.85, 0.85, f'Noisy pixels (freq. > {args.NOISY_FREQUENCY}) : {nNoisy}').Draw('same')
+  if(nNoisy < 10): pavePixel.Draw('same')
 
   hSize = dirCluster.Get("clusterSize")
   hSize.GetXaxis().SetRangeUser(0,25)
