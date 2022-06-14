@@ -192,7 +192,7 @@ def DrawEventLoaderEUDAQ2(self, dirEvent):
 CorryPainter.DrawEventLoaderEUDAQ2 = DrawEventLoaderEUDAQ2
 paint.DrawEventLoaderEUDAQ2(corryHist.Get(eventModule).Get('ALPIDE_0'))
 
-def DrawClusteringAnalog(self, dirCluster):
+def DrawClusteringAnalog(self, dirCluster, nextPage=True):
   # Init
   self.pageName = f"ClusteringAnalog - {detector}"
   # Drawing
@@ -212,7 +212,7 @@ def DrawClusteringAnalog(self, dirCluster):
       if(clusterFreq > args.NOISY_FREQUENCY):
         self.add_text(pavePixel, f'({ix-1}, {iy-1}) - {clusterFreq:.1e} [{clusterCount:.0f}]', size=0.025)
         nNoisy += 1
-        print(f'p\t{ix-1}\t{iy-1}')
+        print(f'p\t{ix-1}\t{iy-1} # {clusterFreq:.1e} [{clusterCount:.0f}]')
   self.DrawHist(hHitFreq, optLogY=True, optLogX=True)
   hHitFreq.SaveAs('noisy_mask.root') # DEBUG
   nNoHits = hHitFreq.GetBinContent(hHitFreq.FindBin(0.))
@@ -258,14 +258,26 @@ def DrawClusteringAnalog(self, dirCluster):
   self.DrawHist(hRatio, "Cluster charge ratio", "colz", False)
   hPx.Draw("same")
 
+  hRatio = dirCluster.Get('clusterChargeHighestNpixels')
+  hRatio.SetTitle('accumulated charge - Highest N pixel ')
+  hRatio.GetXaxis().SetRangeUser(0,10)
+  hRatio.GetYaxis().SetRangeUser(0,args.CHARGE_MAX)
+  hPx = hRatio.ProfileX()
+  hPx.SetLineColor(ROOT.kRed)
+  hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
+  hPx.SetMarkerColor(ROOT.kRed)
+  hPx.SetLineWidth(1)
+  self.DrawHist(hRatio, "Highest N pixel accumulated charge", "colz", False)
+  hPx.Draw("same")
+
   hSize = dirCluster.Get("clusterSeedSNR")
   hSize.Rebin(int(0.5 / hSize.GetBinWidth(1)))
   hSize.GetXaxis().SetRangeUser(0,100)
-  self.DrawHist(hSize, "clusterSeedSNR", optLogY=True)
+  self.DrawHist(hSize, "clusterSeedSNR", optLogY=False)
 
   hSize = dirCluster.Get("clusterNeighboursSNR")
   hSize.GetXaxis().SetRangeUser(-3,20)
-  self.DrawHist(hSize, "clusterNeighboursSNR", optLogY=True)
+  self.DrawHist(hSize, "clusterNeighboursSNR", optLogY=False)
 
   hMap = dirCluster.Get("clusterSeed_Neighbours")
   hMap.GetXaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
@@ -310,7 +322,7 @@ def DrawClusteringAnalog(self, dirCluster):
   self.DrawHist(hMap, "clusterChargeShapeRatio", "colz", False)
   hPx.Draw("same")
   # Output
-  self.NextPage()
+  if(nextPage): self.NextPage()
   return None
 CorryPainter.DrawClusteringAnalog = DrawClusteringAnalog
 
@@ -415,7 +427,7 @@ dirTmp = corryHist.Get(alignDUTModule)
 if(dirTmp != None):
   paint.DrawAlignmentDUT(dirTmp.Get(detector))
 
-def DrawAnalysisDUT(self, dirAna):
+def DrawAnalysisDUT(self, dirAna, nextPage=True):
   # Init
   self.pageName = f"AnalysisDUT - {detector}"
   # Summary pad
@@ -460,13 +472,31 @@ def DrawAnalysisDUT(self, dirAna):
   hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
   self.DrawHist(hSigX, optGaus=True)
   # Output
-  self.NextPage()
+  if(nextPage): self.NextPage()
   return None
 CorryPainter.DrawAnalysisDUT = DrawAnalysisDUT
 
 dirTmp = corryHist.Get(analysisModule)
 if(dirTmp != None):
   paint.DrawAnalysisDUT(dirTmp.Get(detector))
+
+def DrawAnalysisCE65(self, dirAna, nextPage=True):
+  # Init
+  self.pageName = f"AnalysisCE65"
+  # AnalysisDUT
+  self.DrawAnalysisDUT(dirAna, nextPage=False)
+  # Cluster analysis
+  dirCluster = dirAna.Get('cluster')
+  self.DrawClusteringAnalog(dirCluster, nextPage=False)
+  # Output
+  self.pageName = f"AnalysisCE65"
+  if(nextPage): self.NextPage()
+  return None
+CorryPainter.DrawAnalysisCE65 = DrawAnalysisCE65
+
+dirTmp = corryHist.Get("AnalysisCE65")
+if(dirTmp != None):
+  paint.DrawAnalysisCE65(dirTmp.Get(detector))
 
 paint.PrintBackCover()
 corryHist.Close()
