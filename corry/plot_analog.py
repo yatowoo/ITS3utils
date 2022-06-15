@@ -12,6 +12,7 @@ parser.add_argument('--charge-max', dest='CHARGE_MAX', help='Max charge for hist
 parser.add_argument('--charge-binwidth',dest='CHARGE_BINWIDTH', help='Charge bin width for histograms binning', default=25, type=float)
 parser.add_argument('--fit-range',dest='GAUS_FIT', help='Fitting range for gaussian distribution, ratio as FWHM', default=1.0, type=float)
 parser.add_argument('--noisy-freq', dest='NOISY_FREQUENCY', help='Threshold of hit frequency to identify noisy pixels', default=0.001, type=float)
+parser.add_argument('--roi', help='Select ROI from Correlation by FWHM method', default=False,action='store_true')
 
 args = parser.parse_args()
 
@@ -115,6 +116,9 @@ class Painter:
     self.padIndex = self.padIndex + 1
     self.canvas.cd(self.padIndex)
     ROOT.gPad.SetMargin(0.15, 0.02, 0.15, 0.1)
+  def NextRow(self):
+    while(self.padIndex % self.subPadNX != 0):
+      self.NextPad()
   # Drawing - Histograms
   def draw_hist_text(self, hist):
     """Plot bin contect as text for ROOT.TH2
@@ -141,6 +145,15 @@ class Painter:
         hist.SetBinContent(ix, iy, 100 * raw / norm)
       hpfx.Delete()
     return None
+  def fwhm(self, hist):
+    """Calculate FWHM and center for TH1D
+    """
+    peak = hist.GetMaximum()
+    halfLeft = hist.FindFirstBinAbove(peak/2.)
+    halfRight = hist.FindLastBinAbove(peak/2.)
+    center = 0.5 * (hist.GetBinCenter(halfRight) + hist.GetBinCenter(halfLeft))
+    fwhm = hist.GetBinCenter(halfRight) - hist.GetBinCenter(halfLeft)
+    return fwhm, center
   def optimise_hist_gaus(self, hist, scale=1):
     peak = hist.GetMaximum()
     mean = hist.GetMean()
@@ -153,12 +166,19 @@ class Painter:
       print(f'[X] Warning  - FWHM too narrow {center = }, {fwhm = }, {rms = }, {peak = }')
       return None
     fitRange = min(5 * rms, args.GAUS_FIT * fwhm)
-    resultPtr = hist.Fit('gaus','SQ','', center - fitRange, center + fitRange)
+    fcnGaus = self.new_obj(
+      ROOT.TF1(f'fcnFitGaus_{hist.GetName()}_{len(self.root_objs)}',
+      'gaus', center - fitRange, center + fitRange))
+    resultPtr = hist.Fit(fcnGaus,'SQN','', center - fitRange, center + fitRange)
     try:
       params = resultPtr.GetParams()
     except ReferenceError:
       print(f'[X] Warning  - Fitting failed with {center = }, {fwhm = }, {rms = }, {peak = }')
       return None
+    mean = params[1]
+    sigma = params[2]
+    fcnGaus.SetRange(mean - 5 * sigma, mean + 5 * sigma)
+    fcnGaus.Draw('same')
     drawRange = min(15 * rms, 10 * params[2])
     hist.GetXaxis().SetRangeUser(center - drawRange, center + drawRange)
     # Draw info
@@ -194,6 +214,24 @@ class Painter:
 class CorryPainter(Painter):
   def __init__(self, canvas, printer, **kwargs):
     super().__init__(canvas, printer, **kwargs)
+  def select_roi(self, hitmap, bin_width=1, suffix=''):
+    """ Select trigger region as ROI
+    """
+    hitx = self.new_obj(hitmap.ProjectionX(f'{hitmap.GetName()}{suffix}_px'))
+    hitx.SetTitle(f'{suffix} - cluster map projection X')
+    hitx.Rebin(int(bin_width // hitx.GetBinWidth(1)))
+    self.DrawHist(hitx, optGaus=True)
+    x_width, x_center = self.fwhm(hitx)
+    hity = self.new_obj(hitmap.ProjectionY(f'{hitmap.GetName()}{suffix}_py'))
+    hity.SetTitle(f'{suffix} - cluster map projection Y')
+    hity.Rebin(int(bin_width // hity.GetBinWidth(1)))
+    self.DrawHist(hity, optGaus=True)
+    y_width, y_center = self.fwhm(hity)
+    xlower = math.floor(x_center - 2 * x_width)
+    xupper = math.ceil(x_center + 2 * x_width)
+    ylower = math.floor(y_center - 2 * y_width)
+    yupper = math.ceil(y_center + 2 * y_width)
+    return xlower, xupper, ylower, yupper
   # End - class CorryPainter
 
 c = ROOT.TCanvas('cQA','Corry Performance Figures',2560, 1440)
@@ -397,7 +435,18 @@ def DrawCorrelation(self, dirCorr):
   for detName in detList:
     dirDet = dirCorr.Get(detName)
     if(dirDet == None): continue
-    self.DrawHist(dirDet.Get('hitmap_clusters'), option='colz')
+    self.NextRow()
+    hitmap = dirDet.Get('hitmap_clusters')
+    self.DrawHist(hitmap, option='colz')
+    if(args.roi and detName != detector):
+      xlower, xupper, ylower, yupper = self.select_roi(hitmap, suffix=f'{detName}')
+      hitmap_roi = self.new_obj(hitmap.Clone(f'{hitmap.GetName()}_{detName}_roi'))
+      hitmap_roi.SetTitle(f'{detName} cluster map with ROI')
+      hitmap_roi.GetXaxis().SetRangeUser(xlower, xupper)
+      hitmap_roi.GetYaxis().SetRangeUser(ylower, yupper)
+      self.DrawHist(hitmap_roi, option='colz')
+      corryROI = [[xlower,ylower],[xlower,yupper],[xupper,yupper],[xupper,ylower]]
+      print(f'> {detName} roi = {corryROI}')
     self.DrawHist(dirDet.Get('correlationX'), optGaus=True, scale=1000)
     self.DrawHist(dirDet.Get('correlationY'), optGaus=True, scale=1000)
   # Output
