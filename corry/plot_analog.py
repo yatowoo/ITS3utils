@@ -68,6 +68,7 @@ class Painter:
   def draw_text(self, xlow=0.25, ylow=0.4, xup=0.75, yup=0.6, text = '', size=0.04, font=42):
     pave = self.new_obj(ROOT.TPaveText(xlow, ylow, xup, yup, "brNDC"))
     pave.SetBorderSize(0)
+    pave.SetFillStyle(0) # hollow
     pave.SetFillColor(ROOT.kWhite)
     if(text != ''):
       self.add_text(pave, text, size=size, font=font)
@@ -115,6 +116,31 @@ class Painter:
     self.canvas.cd(self.padIndex)
     ROOT.gPad.SetMargin(0.15, 0.02, 0.15, 0.1)
   # Drawing - Histograms
+  def draw_hist_text(self, hist):
+    """Plot bin contect as text for ROOT.TH2
+    """
+    xlower = ROOT.gPad.GetLeftMargin()
+    xupper = 1 - ROOT.gPad.GetRightMargin()
+    ylower = ROOT.gPad.GetBottomMargin()
+    yupper = 1 - ROOT.gPad.GetTopMargin()
+    wx = (xupper - xlower) / hist.GetNbinsX()
+    wy = (yupper - ylower) / hist.GetNbinsY()
+    for iy in range(hist.GetNbinsY()):
+      for ix in range(hist.GetNbinsX()):
+        val = hist.GetBinContent(ix + 1, iy +1)
+        pave = self.draw_text(ix * wx + xlower, iy * wy + ylower, (ix+1) * wx + xlower, (iy+1)*wx + xlower)
+        self.add_text(pave,f'{val:.3f}',size=0.06, font=62, align=22)
+        pave.Draw('same')
+  def normalise_profile_y(self, hist):
+    for ix in range(1,hist.GetNbinsX()+1):
+      hpfx = hist.ProjectionY(f'_py_{ix}', ix, ix)
+      norm = hpfx.GetMaximum()
+      if norm < 1: continue
+      for iy in range(1,hist.GetNbinsY()+1):
+        raw = hist.GetBinContent(ix, iy)
+        hist.SetBinContent(ix, iy, 100 * raw / norm)
+      hpfx.Delete()
+    return None
   def optimise_hist_gaus(self, hist, scale=1):
     peak = hist.GetMaximum()
     mean = hist.GetMean()
@@ -145,14 +171,15 @@ class Painter:
     self.add_text(pave, f'FWHM = {fwhm * scale:.1f}')
     pave.Draw('same')
     return resultPtr
-  def DrawHist(self, htmp, title="", option="", optStat=False, samePad=False, optLogY=False, optGaus=False, scale=1, **kwargs):
+  def DrawHist(self, htmp, title="", option="", optStat=False, samePad=False, optGaus=False, scale=1, **kwargs):
     ROOT.gStyle.SetOptStat(optStat)
     if(title == ""):
       title = htmp.GetTitle()
     if(not samePad):
       self.NextPad(title)
     print("[+] DEBUG - Pad " + str(self.padIndex) + ' : ' + htmp.GetName())
-    ROOT.gPad.SetLogy(optLogY)
+    if kwargs.get('optNormY') == True:
+      self.normalise_profile_y(htmp)
     if(option == "colz"):
       zmax = htmp.GetBinContent(htmp.GetMaximumBin())
       htmp.GetZaxis().SetRangeUser(0.0 * zmax, 1.1 * zmax)
@@ -161,7 +188,9 @@ class Painter:
       htmp.SetTitleOffset(0.8, "XY")
     htmp.Draw(option)
     if(optGaus): self.optimise_hist_gaus(htmp, scale)
-    if(kwargs.get('optLogX') == True): ROOT.gPad.SetLogx(True)
+    ROOT.gPad.SetLogx(kwargs.get('optLogX') == True)
+    ROOT.gPad.SetLogy(kwargs.get('optLogY') == True)
+    ROOT.gPad.SetLogz(kwargs.get('optLogZ') == True)
 class CorryPainter(Painter):
   def __init__(self, canvas, printer, **kwargs):
     super().__init__(canvas, printer, **kwargs)
@@ -192,7 +221,7 @@ def DrawEventLoaderEUDAQ2(self, dirEvent):
 CorryPainter.DrawEventLoaderEUDAQ2 = DrawEventLoaderEUDAQ2
 paint.DrawEventLoaderEUDAQ2(corryHist.Get(eventModule).Get('ALPIDE_0'))
 
-def DrawClusteringAnalog(self, dirCluster, nextPage=True):
+def DrawClusteringAnalog(self, dirCluster, nextPage=True, suffix=''):
   # Init
   self.pageName = f"ClusteringAnalog - {detector}"
   # Drawing
@@ -200,7 +229,7 @@ def DrawClusteringAnalog(self, dirCluster, nextPage=True):
   self.DrawHist(hMap, option="colz")
   self.draw_text(0.55, 0.92, 0.95, 0.98, f'Total N_{{cluster}} : {hMap.GetEntries():.0f}', font=62, size=0.05).Draw("same")
     # Noisy pixel
-  hHitFreq = self.new_obj(ROOT.TH1F('hHitFreq','Hitmap by cluster (frequency);Frequency;# pixels',10000,0.,1.0))
+  hHitFreq = self.new_obj(ROOT.TH1F(f'hHitFreq{suffix}','Hitmap by cluster (frequency);Frequency;# pixels',10000,0.,1.0))
   pavePixel = self.draw_text(0.7, 0.6, 0.85, 0.80)
   nNoisy = 0
   print('>>> Mask creation by output of ClusteringAnalog')
@@ -247,33 +276,11 @@ def DrawClusteringAnalog(self, dirCluster, nextPage=True):
   hSize.GetXaxis().SetRangeUser(-0.05 * args.CHARGE_MAX,args.CHARGE_MAX)
   self.DrawHist(hSize, "Cluster neighbours charge", optLogY=True)
 
-  hRatio = dirCluster.Get("clusterChargeRatio")
-  hRatio.GetXaxis().SetRangeUser(0,10)
-  hRatio.GetYaxis().SetRangeUser(0,1.1)
-  hPx = hRatio.ProfileX()
-  hPx.SetLineColor(ROOT.kRed)
-  hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
-  hPx.SetMarkerColor(ROOT.kRed)
-  hPx.SetLineWidth(1)
-  self.DrawHist(hRatio, "Cluster charge ratio", "colz", False)
-  hPx.Draw("same")
-
-  hRatio = dirCluster.Get('clusterChargeHighestNpixels')
-  hRatio.SetTitle('accumulated charge - Highest N pixel ')
-  hRatio.GetXaxis().SetRangeUser(0,10)
-  hRatio.GetYaxis().SetRangeUser(0,args.CHARGE_MAX)
-  hPx = hRatio.ProfileX()
-  hPx.SetLineColor(ROOT.kRed)
-  hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
-  hPx.SetMarkerColor(ROOT.kRed)
-  hPx.SetLineWidth(1)
-  self.DrawHist(hRatio, "Highest N pixel accumulated charge", "colz", False)
-  hPx.Draw("same")
-
   hSize = dirCluster.Get("clusterSeedSNR")
-  hSize.Rebin(int(0.5 / hSize.GetBinWidth(1)))
+  hSize.Rebin(int(1 / hSize.GetBinWidth(1)))
   hSize.GetXaxis().SetRangeUser(0,100)
-  self.DrawHist(hSize, "clusterSeedSNR", optLogY=False)
+  hSize.GetYaxis().SetRangeUser(0,hSize.GetMaximum() * 1.2)
+  self.DrawHist(hSize, "clusterSeedSNR")
 
   hSize = dirCluster.Get("clusterNeighboursSNR")
   hSize.GetXaxis().SetRangeUser(-3,20)
@@ -313,13 +320,66 @@ def DrawClusteringAnalog(self, dirCluster, nextPage=True):
 
   hMap = dirCluster.Get("clusterChargeShapeRatio")
   hMap.GetXaxis().SetRangeUser(-5,5)
-  hMap.GetYaxis().SetRangeUser(-0.05,1.1)
+  hMap.GetYaxis().SetRangeUser(-0.05,1.2)
   hPx = hMap.ProfileX() # TODO: Re-normalized with counts in seed
-  hPx.SetLineColor(ROOT.kRed)
+  hPx.SetLineColor(ROOT.kBlack)
   hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
-  hPx.SetMarkerColor(ROOT.kRed)
-  hPx.SetLineWidth(1)
-  self.DrawHist(hMap, "clusterChargeShapeRatio", "colz", False)
+  hPx.SetMarkerColor(ROOT.kBlack)
+  hPx.SetLineWidth(3)
+  self.DrawHist(hMap, "clusterChargeShapeRatio", "colz", optNormY=True)
+  hPx.Draw("same")
+
+  # Charge sharing (ratio distribution)
+  windowSize = 3.0
+  hRatioMean = self.new_obj(ROOT.TH2D(
+    f'hChargeSharingRatioMean{suffix}',
+    'CE65 - charge sharing by ratio (avg.);column (pixel);row (pixel)',
+    int(windowSize), -windowSize/2, windowSize/2,
+    int(windowSize), -windowSize/2, windowSize/2))
+  hRatioMPV = self.new_obj(ROOT.TH2D(
+    f'hChargeSharingRatioMPV{suffix}',
+    'CE65 - charge sharing by ratio (MPV);column (pixel);row (pixel)',
+    int(windowSize), -windowSize/2, windowSize/2,
+    int(windowSize), -windowSize/2, windowSize/2))
+  for iy in range(int(windowSize)):
+    for ix in range(int(windowSize)):
+      index = int(ix + iy * windowSize - (windowSize * windowSize  -1) // 2)
+      binx = hMap.GetXaxis().FindBin(index)
+      hpfy = hMap.ProjectionY(f'_py_{ix}_{iy}_{suffix}',binx,binx)
+      hRatioMean.SetBinContent(ix + 1, iy + 1, hpfy.GetMean())
+      peak = hpfy.GetBinCenter(hpfy.GetMaximumBin())
+      hRatioMPV.SetBinContent(ix + 1, iy + 1, peak)
+      hpfy.Delete()
+  self.DrawHist(hRatioMean, 'hChargeSharingRatioMean', 'colz')
+  self.draw_hist_text(hRatioMean)
+  self.DrawHist(hRatioMPV, 'hChargeSharingRatioMPV', 'colz')
+  self.draw_hist_text(hRatioMPV)
+    # Cluster shape with highest N/Nth pixels
+  hRatio = dirCluster.Get("clusterChargeRatio")
+  hRatio.SetXTitle(f'R_{{n}} (#sum highest N pixels)')
+  hRatio.SetYTitle('accumulated charge ratio')
+  hRatio.GetXaxis().SetRangeUser(0,10)
+  hRatio.GetYaxis().SetRangeUser(0,1.2)
+  hPx = hRatio.ProfileX()
+  hPx.SetLineColor(ROOT.kBlack)
+  hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
+  hPx.SetLineWidth(3)
+  hPx.SetMarkerColor(ROOT.kBlack)
+  self.DrawHist(hRatio, "Cluster charge ratio", "colz", False, optNormY=True)
+  hPx.Draw("same")
+
+  hRatio = dirCluster.Get('clusterChargeHighestNpixels')
+  hRatio.SetTitle('accumulated charge - Highest N pixel ')
+  hRatio.SetYTitle('accumulated charge')
+  hRatio.SetXTitle(f'Q_{{n}} (#sum highest N pixels)')
+  hRatio.GetXaxis().SetRangeUser(0,10)
+  hRatio.GetYaxis().SetRangeUser(0,args.CHARGE_MAX)
+  hPx = hRatio.ProfileX()
+  hPx.SetLineColor(ROOT.kBlack)
+  hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
+  hPx.SetMarkerColor(ROOT.kBlack)
+  hPx.SetLineWidth(3)
+  self.DrawHist(hRatio, "Highest N pixel accumulated charge", "colz", False)
   hPx.Draw("same")
   # Output
   if(nextPage): self.NextPage()
@@ -487,7 +547,7 @@ def DrawAnalysisCE65(self, dirAna, nextPage=True):
   self.DrawAnalysisDUT(dirAna, nextPage=False)
   # Cluster analysis
   dirCluster = dirAna.Get('cluster')
-  self.DrawClusteringAnalog(dirCluster, nextPage=False)
+  self.DrawClusteringAnalog(dirCluster, nextPage=False, suffix='_assoc')
   # Output
   self.pageName = f"AnalysisCE65"
   if(nextPage): self.NextPage()
