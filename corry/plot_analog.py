@@ -178,7 +178,8 @@ class Painter:
     try:
       _ = getattr(ROOT, 'langaufun')
     except AttributeError:
-      ROOT.gInterpreter.ProcessLine('#include "langaus.C"')
+      script_path = os.path.dirname( os.path.realpath(__file__) )
+      ROOT.gInterpreter.ProcessLine(f'#include "{script_path}/langaus.C"')
     fcnName = f'fitLangaus_{hist.GetName()}_{len(self.root_objs)}'
     fcnfit = self.new_obj(ROOT.TF1(fcnName, ROOT.langaufun, fitRange[0], fitRange[1], N_PARS))
     startvals = [par[0] for par in pars]
