@@ -269,7 +269,7 @@ class Painter:
 class CorryPainter(Painter):
   def __init__(self, canvas, printer, **kwargs):
     super().__init__(canvas, printer, **kwargs)
-  def select_roi(self, hitmap, bin_width=1, suffix=''):
+  def select_roi(self, hitmap, bin_width=1, roi_scale=1.5, suffix=''):
     """ Select trigger region as ROI
     """
     hitx = self.new_obj(hitmap.ProjectionX(f'{hitmap.GetName()}{suffix}_px'))
@@ -282,10 +282,10 @@ class CorryPainter(Painter):
     hity.Rebin(int(bin_width // hity.GetBinWidth(1)))
     self.DrawHist(hity, optGaus=True)
     y_width, y_center = self.estimate_fwhm(hity)
-    xlower = math.floor(x_center - 2 * x_width)
-    xupper = math.ceil(x_center + 2 * x_width)
-    ylower = math.floor(y_center - 2 * y_width)
-    yupper = math.ceil(y_center + 2 * y_width)
+    xlower = math.floor(x_center - roi_scale * x_width)
+    xupper = math.ceil(x_center + roi_scale * x_width)
+    ylower = math.floor(y_center - roi_scale * y_width)
+    yupper = math.ceil(y_center + roi_scale * y_width)
     return xlower, xupper, ylower, yupper
   # End - class CorryPainter
 
@@ -528,8 +528,10 @@ def DrawTracking4D(self, dirAna):
     refName = f'ALPIDE_{iRef}'
     dirRef = dirAna.Get(refName).Get('global_residuals')
     h = dirRef.Get('GlobalResidualsX')
+    h.Rebin(int(0.001 // h.GetBinWidth(1))) # binwidth -> 0.5um
     self.DrawHist(h, 'GlobalResidualsX', optGaus=True, scale=1000)
     h = dirRef.Get('GlobalResidualsY')
+    h.Rebin(int(0.001 // h.GetBinWidth(1)))
     self.DrawHist(h, 'GlobalResidualsY', optGaus=True, scale=1000)
   # Interception in DUT
   dirDUT = dirAna.Get(detector)
