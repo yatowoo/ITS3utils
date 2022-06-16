@@ -66,13 +66,13 @@ class Painter:
     if(color):
       text.SetTextColor(color)
     return text
-  def draw_text(self, xlow=0.25, ylow=0.4, xup=0.75, yup=0.6, text = '', size=0.04, font=42):
+  def draw_text(self, xlow=0.25, ylow=0.4, xup=0.75, yup=0.6, title = '', size=0.05, font=62):
     pave = self.new_obj(ROOT.TPaveText(xlow, ylow, xup, yup, "brNDC"))
     pave.SetBorderSize(0)
     pave.SetFillStyle(0) # hollow
     pave.SetFillColor(ROOT.kWhite)
-    if(text != ''):
-      self.add_text(pave, text, size=size, font=font)
+    if(title != ''):
+      self.add_text(pave, title, size=size, font=font)
     return pave
   def ResetCanvas(self):
     self.canvas.Clear()
@@ -145,15 +145,68 @@ class Painter:
         hist.SetBinContent(ix, iy, 100 * raw / norm)
       hpfx.Delete()
     return None
-  def fwhm(self, hist):
+  def estimate_fwhm(self, hist):
     """Calculate FWHM and center for TH1D
     """
     peak = hist.GetMaximum()
+    rms = hist.GetRMS()
+    mean = hist.GetMean()
     halfLeft = hist.FindFirstBinAbove(peak/2.)
     halfRight = hist.FindLastBinAbove(peak/2.)
     center = 0.5 * (hist.GetBinCenter(halfRight) + hist.GetBinCenter(halfLeft))
     fwhm = hist.GetBinCenter(halfRight) - hist.GetBinCenter(halfLeft)
+    if fwhm < 2 * hist.GetBinWidth(1):
+      print(f'[X] Warning  - Histogram {hist.GetName()} - FWHM too narrow {center = :.2e}, {fwhm = :.2e}, {rms = :.2e}, {peak = :.2e}')
+      return rms, mean
     return fwhm, center
+  def optimise_hist_langau(self, hist, scale=1, **kwargs):
+    """Adaptive fitter for Landau-Gaussian distribution
+    """
+    # Parameters
+    N_PARS = 4
+    fwhm, center = self.estimate_fwhm(hist)
+    fitRange = kwargs.get('fitRange')
+    if(not fitRange): fitRange = [0.3*hist.GetMean(), 3*hist.GetMean()]
+    area = hist.GetEntries()
+    pars = [
+      [fwhm * 0.1, fwhm * 0., fwhm * 1],
+      [center, center * 0.5, center * 2],
+      [10 * area, area * 5, area * 100],
+      [fwhm * 0.1, fwhm * 0., fwhm * 1],
+    ]
+    # Fitter
+    try:
+      _ = getattr(ROOT, 'langaufun')
+    except AttributeError:
+      ROOT.gInterpreter.ProcessLine('#include "langaus.C"')
+    fcnName = f'fitLangaus_{hist.GetName()}_{len(self.root_objs)}'
+    fcnfit = self.new_obj(ROOT.TF1(fcnName, ROOT.langaufun, fitRange[0], fitRange[1], N_PARS))
+    startvals = [par[0] for par in pars]
+    parlimitslo = [par[1] for par in pars]
+    parlimitshi = [par[2] for par in pars]
+    fcnfit.SetParameters(array('d', startvals))
+    fcnfit.SetParNames("Width","MP","Area","GSigma")
+    for i in range(N_PARS):
+      fcnfit.SetParLimits(i, parlimitslo[i], parlimitshi[i])
+    resultPtr = hist.Fit(fcnName, 'RB0SQN')
+    try:
+      params = resultPtr.GetParams()
+    except ReferenceError:
+      self.draw_text(0.50, 0.55, 0.80, 0.85, 'Langau fitting FAILED').Draw('same')
+      print(f'[X] Warning  - {hist.GetName()} - Langau fitting FAILED')
+      return None
+    fiterrs = array('d',[0.] * N_PARS)
+    fiterrs = fcnfit.GetParErrors()
+    # Draw
+    fcnfit.SetRange(hist.GetXaxis().GetXmin(), hist.GetXaxis().GetXmax())
+    fcnfit.Draw('lsame')
+    pave = self.draw_text(0.58, 0.55, 0.85, 0.85,title='Landau-Gaussian')
+    self.add_text(pave, f'#chi^{{2}} / NDF = {resultPtr.Chi2():.1f} / {resultPtr.Ndf()}')
+    self.add_text(pave, f'Mean = {hist.GetMean():.2e}')
+    for ipar in range(N_PARS):
+      self.add_text(pave, f'{fcnfit.GetParName(ipar)} = {params[ipar]:.2e}')
+    pave.Draw('same')
+    return fcnfit, resultPtr
   def optimise_hist_gaus(self, hist, scale=1):
     peak = hist.GetMaximum()
     mean = hist.GetMean()
@@ -208,6 +261,8 @@ class Painter:
       htmp.SetTitleOffset(0.8, "XY")
     htmp.Draw(option)
     if(optGaus): self.optimise_hist_gaus(htmp, scale)
+    if(kwargs.get('optLangau') == True):
+      self.optimise_hist_langau(htmp, scale)
     ROOT.gPad.SetLogx(kwargs.get('optLogX') == True)
     ROOT.gPad.SetLogy(kwargs.get('optLogY') == True)
     ROOT.gPad.SetLogz(kwargs.get('optLogZ') == True)
@@ -221,12 +276,12 @@ class CorryPainter(Painter):
     hitx.SetTitle(f'{suffix} - cluster map projection X')
     hitx.Rebin(int(bin_width // hitx.GetBinWidth(1)))
     self.DrawHist(hitx, optGaus=True)
-    x_width, x_center = self.fwhm(hitx)
+    x_width, x_center = self.estimate_fwhm(hitx)
     hity = self.new_obj(hitmap.ProjectionY(f'{hitmap.GetName()}{suffix}_py'))
     hity.SetTitle(f'{suffix} - cluster map projection Y')
     hity.Rebin(int(bin_width // hity.GetBinWidth(1)))
     self.DrawHist(hity, optGaus=True)
-    y_width, y_center = self.fwhm(hity)
+    y_width, y_center = self.estimate_fwhm(hity)
     xlower = math.floor(x_center - 2 * x_width)
     xupper = math.ceil(x_center + 2 * x_width)
     ylower = math.floor(y_center - 2 * y_width)
@@ -567,11 +622,11 @@ def DrawAnalysisDUT(self, dirAna, nextPage=True):
   hCharge = dirAna.Get('clusterChargeAssociated')
   hCharge.Rebin(int(args.CHARGE_BINWIDTH / hCharge.GetBinWidth(1)))
   hCharge.GetXaxis().SetRangeUser(0,args.CHARGE_MAX)
-  self.DrawHist(hCharge)
+  self.DrawHist(hCharge, optLangau=True)
   hCharge = dirAna.Get('seedChargeAssociated')
   hCharge.Rebin(int(args.CHARGE_BINWIDTH / hCharge.GetBinWidth(1)))
   hCharge.GetXaxis().SetRangeUser(0,args.CHARGE_MAX)
-  self.DrawHist(hCharge)
+  self.DrawHist(hCharge, optLangau=True)
   # residualsX
   hSigX = dirAna.Get("global_residuals").Get("residualsX")
   hSigX.Rebin(int(1. / hSigX.GetBinWidth(1)))
@@ -595,6 +650,7 @@ def DrawAnalysisCE65(self, dirAna, nextPage=True):
   # AnalysisDUT
   self.DrawAnalysisDUT(dirAna, nextPage=False)
   # Cluster analysis
+  self.NextRow()
   dirCluster = dirAna.Get('cluster')
   self.DrawClusteringAnalog(dirCluster, nextPage=False, suffix='_assoc')
   # Output
