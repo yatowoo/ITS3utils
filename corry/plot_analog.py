@@ -29,6 +29,8 @@ ROOT.gStyle.SetLineWidth(1)
 ROOT.gStyle.SetOptTitle(1)
 ROOT.gStyle.SetOptStat(0)
 
+CE65_SUBMATRIX_EDGE = [21, 42, 64]
+
 def simple_efficiency(nsel, nall):
   if(nall < 1.):
     return (0., 0.)
@@ -607,6 +609,15 @@ def DrawAnalysisDUT(self, dirAna, nextPage=True):
   nTrackCutMask = int(hCut.GetBinContent(2))
   nTrackPass = int(hCut.GetBinContent(7))
   nAssociatedCluster = int(hCut.GetBinContent(8))
+    # Track hit at edge of sub-matrix
+  hMapIneff = dirAna.Get('hUnassociatedTracksLocalPosition')
+  nTrackEdge = 0
+  for edge in CE65_SUBMATRIX_EDGE[0:2]:
+    xlower = hMapIneff.GetXaxis().FindBin(edge-1.5)
+    xupper = hMapIneff.GetXaxis().FindBin(edge+.5)
+    py = hMapIneff.ProjectionY(f'_py_{xlower}_{xupper}', xlower, xupper)
+    nTrackEdge += int(py.GetEntries())
+  nTrackPass -= nTrackEdge
   eff, error, lerr, uerr = simple_efficiency(nAssociatedCluster, nTrackPass)
   pave = self.draw_text(0.15, 0.1, 0.7, 0.9)
   self.add_text(pave, f'Raw efficiency : {eff * 100:.1f}^{{+{uerr * 100:.1f}}}_{{-{lerr * 100:.1f}}} %', font=62, size=0.08)
@@ -615,13 +626,20 @@ def DrawAnalysisDUT(self, dirAna, nextPage=True):
   self.add_text(pave, f'- outside DUT : -{nTrackCutDUT}')
   self.add_text(pave, f'- outside ROI : -{nTrackCutROI}')
   self.add_text(pave, f'- close to mask : -{nTrackCutMask}')
+  self.add_text(pave, f'- close to edge of sub-matrix : -{nTrackEdge}')
   self.add_text(pave, f'Track pass selectoin : {nTrackPass}', font=62, size=0.05)
   self.add_text(pave, f'Associated clusters N_{{assoc. cls.}} : {nAssociatedCluster}', font=62, size=0.05)
   pave.Draw()
   # Drawing  
   hMap = dirAna.Get("clusterMapAssoc")
   self.DrawHist(hMap, "clusterSize", "colz")
+    # In-eff map (unassociated tracks)
+  nbinx = int(1 // hMapIneff.GetXaxis().GetBinWidth(1))
+  nbiny = int(1 // hMapIneff.GetYaxis().GetBinWidth(1))
+  hMapIneff.Rebin2D( nbinx , nbiny) # Rebin to 1px
+  self.DrawHist(hMapIneff, option='colz')
   # Charge
+  self.NextRow()
   hCharge = dirAna.Get('clusterChargeAssociated')
   hCharge.Rebin(int(args.CHARGE_BINWIDTH / hCharge.GetBinWidth(1)))
   hCharge.GetXaxis().SetRangeUser(0,args.CHARGE_MAX)
