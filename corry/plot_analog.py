@@ -31,245 +31,18 @@ ROOT.gStyle.SetOptStat(0)
 
 CE65_SUBMATRIX_EDGE = [21, 42, 64]
 
-def simple_efficiency(nsel, nall):
-  if(nall < 1.):
-    return (0., 0.)
-  eff = float(nsel) / float(nall)
-  lowerErrorEff = eff - ROOT.TEfficiency.ClopperPearson(nall, nsel, 0.683, False)
-  upperErrorEff = ROOT.TEfficiency.ClopperPearson(nall, nsel, 0.683, True) - eff
-  error = (upperErrorEff + lowerErrorEff) / 2.
-  return (eff, error, lowerErrorEff, upperErrorEff)
-
-class Painter:
-  def __init__(self, canvas, printer, **kwargs):
-    self.canvas = canvas
-    self.printer = printer     # Output PDF in 1 file
-    # Configuration
-    self.subPadNX = kwargs['nx'] if kwargs.get('nx') else 1
-    self.subPadNY = kwargs['ny'] if kwargs.get('ny') else 1
-    # Status
-    self.padIndex = 0
-    self.pageName = "Start"
-    self.hasCover = False
-    self.hasBackCover = False
-    # Dump
-    self.root_objs = []         # Temp storage to avoid GC
-  def __del__(self):
-    if(self.hasCover and not self.hasBackCover):
-      self.PrintBackCover('')
-  def new_obj(self, obj):
-    self.root_objs.append(obj)
-    return self.root_objs[-1]
-  def add_text(self, pave : ROOT.TPaveText, s : str, color=None, size=0.04, align=11, font=42):
-    text = pave.AddText(s)
-    text.SetTextAlign(align)
-    text.SetTextSize(size)
-    text.SetTextFont(font)
-    if(color):
-      text.SetTextColor(color)
-    return text
-  def draw_text(self, xlow=0.25, ylow=0.4, xup=0.75, yup=0.6, title = '', size=0.05, font=62):
-    pave = self.new_obj(ROOT.TPaveText(xlow, ylow, xup, yup, "brNDC"))
-    pave.SetBorderSize(0)
-    pave.SetFillStyle(0) # hollow
-    pave.SetFillColor(ROOT.kWhite)
-    if(title != ''):
-      self.add_text(pave, title, size=size, font=font)
-    return pave
-  def ResetCanvas(self):
-    self.canvas.Clear()
-    self.canvas.Divide(self.subPadNX, self.subPadNY)
-  def SetLayout(self, nx, ny):
-    self.subPadNX = nx
-    self.subPadNY = ny
-    self.ResetCanvas()
-  def GetLayout(self):
-    return (self.subPadNX, self.subPadNY)
-  def PrintCover(self, title = '', isBack = False):
-    self.canvas.Clear()
-    pTxt = ROOT.TPaveText(0.25,0.4,0.75,0.6, "brNDC")
-    if(title == ''):
-      if(isBack):
-        pTxt.AddText('Thanks for your attention!')
-      else:
-        pTxt.AddText(self.canvas.GetTitle())
-    else:
-      pTxt.AddText(title)
-    self.canvas.cd()
-    self.canvas.Draw()
-    pTxt.Draw()
-    if(isBack):
-      self.canvas.Print(self.printer + ')', 'Title:End')
-    else:
-      self.canvas.Print(self.printer + '(', 'Title:Cover')
-    pTxt.Delete()
-    self.ResetCanvas()
-  def PrintBackCover(self, title=''):
-    self.PrintCover(title, isBack=True)
-  def NextPage(self, title=""):
-    self.padIndex = 0
-    if(title == ""):
-      title = self.pageName
-    self.canvas.Print(self.printer, f"Title:{title}")
-    self.ResetCanvas()
-  def NextPad(self, title=""):
-    if(self.padIndex == self.subPadNX * self.subPadNY):
-      self.NextPage()
-    self.padIndex = self.padIndex + 1
-    self.canvas.cd(self.padIndex)
-    ROOT.gPad.SetMargin(0.15, 0.02, 0.15, 0.1)
-  def NextRow(self):
-    while(self.padIndex % self.subPadNX != 0):
-      self.NextPad()
-  # Drawing - Histograms
-  def draw_hist_text(self, hist):
-    """Plot bin contect as text for ROOT.TH2
-    """
-    xlower = ROOT.gPad.GetLeftMargin()
-    xupper = 1 - ROOT.gPad.GetRightMargin()
-    ylower = ROOT.gPad.GetBottomMargin()
-    yupper = 1 - ROOT.gPad.GetTopMargin()
-    wx = (xupper - xlower) / hist.GetNbinsX()
-    wy = (yupper - ylower) / hist.GetNbinsY()
-    for iy in range(hist.GetNbinsY()):
-      for ix in range(hist.GetNbinsX()):
-        val = hist.GetBinContent(ix + 1, iy +1)
-        pave = self.draw_text(ix * wx + xlower, iy * wy + ylower, (ix+1) * wx + xlower, (iy+1)*wx + xlower)
-        self.add_text(pave,f'{val:.3f}',size=0.06, font=62, align=22)
-        pave.Draw('same')
-  def normalise_profile_y(self, hist):
-    for ix in range(1,hist.GetNbinsX()+1):
-      hpfx = hist.ProjectionY(f'_py_{ix}', ix, ix)
-      norm = hpfx.GetMaximum()
-      if norm < 1: continue
-      for iy in range(1,hist.GetNbinsY()+1):
-        raw = hist.GetBinContent(ix, iy)
-        hist.SetBinContent(ix, iy, 100 * raw / norm)
-      hpfx.Delete()
-    return None
-  def estimate_fwhm(self, hist):
-    """Calculate FWHM and center for TH1D
-    """
-    peak = hist.GetMaximum()
-    rms = hist.GetRMS()
-    mean = hist.GetMean()
-    halfLeft = hist.FindFirstBinAbove(peak/2.)
-    halfRight = hist.FindLastBinAbove(peak/2.)
-    center = 0.5 * (hist.GetBinCenter(halfRight) + hist.GetBinCenter(halfLeft))
-    fwhm = hist.GetBinCenter(halfRight) - hist.GetBinCenter(halfLeft)
-    if fwhm < 2 * hist.GetBinWidth(1):
-      print(f'[X] Warning  - Histogram {hist.GetName()} - FWHM too narrow {center = :.2e}, {fwhm = :.2e}, {rms = :.2e}, {peak = :.2e}')
-      return rms, mean
-    return fwhm, center
-  def optimise_hist_langau(self, hist, scale=1, **kwargs):
-    """Adaptive fitter for Landau-Gaussian distribution
-    """
-    # Parameters
-    N_PARS = 4
-    fwhm, center = self.estimate_fwhm(hist)
-    fitRange = kwargs.get('fitRange')
-    if(not fitRange): fitRange = [0.3*hist.GetMean(), 3*hist.GetMean()]
-    area = hist.GetEntries()
-    pars = [
-      [fwhm * 0.1, fwhm * 0., fwhm * 1],
-      [center, center * 0.5, center * 2],
-      [10 * area, area * 5, area * 100],
-      [fwhm * 0.1, fwhm * 0., fwhm * 1],
-    ]
-    # Fitter
-    try:
-      _ = getattr(ROOT, 'langaufun')
-    except AttributeError:
-      script_path = os.path.dirname( os.path.realpath(__file__) )
-      ROOT.gInterpreter.ProcessLine(f'#include "{script_path}/langaus.C"')
-    fcnName = f'fitLangaus_{hist.GetName()}_{len(self.root_objs)}'
-    fcnfit = self.new_obj(ROOT.TF1(fcnName, ROOT.langaufun, fitRange[0], fitRange[1], N_PARS))
-    startvals = [par[0] for par in pars]
-    parlimitslo = [par[1] for par in pars]
-    parlimitshi = [par[2] for par in pars]
-    fcnfit.SetParameters(array('d', startvals))
-    fcnfit.SetParNames("Width","MP","Area","GSigma")
-    for i in range(N_PARS):
-      fcnfit.SetParLimits(i, parlimitslo[i], parlimitshi[i])
-    resultPtr = hist.Fit(fcnName, 'RB0SQN')
-    try:
-      params = resultPtr.GetParams()
-    except ReferenceError:
-      self.draw_text(0.50, 0.55, 0.80, 0.85, 'Langau fitting FAILED').Draw('same')
-      print(f'[X] Warning  - {hist.GetName()} - Langau fitting FAILED')
-      return None
-    fiterrs = array('d',[0.] * N_PARS)
-    fiterrs = fcnfit.GetParErrors()
-    # Draw
-    fcnfit.SetRange(hist.GetXaxis().GetXmin(), hist.GetXaxis().GetXmax())
-    fcnfit.Draw('lsame')
-    pave = self.draw_text(0.58, 0.55, 0.85, 0.85,title='Landau-Gaussian')
-    self.add_text(pave, f'#chi^{{2}} / NDF = {resultPtr.Chi2():.1f} / {resultPtr.Ndf()}')
-    self.add_text(pave, f'Mean = {hist.GetMean():.2e}')
-    for ipar in range(N_PARS):
-      self.add_text(pave, f'{fcnfit.GetParName(ipar)} = {params[ipar]:.2e}')
-    pave.Draw('same')
-    return fcnfit, resultPtr
-  def optimise_hist_gaus(self, hist, scale=1):
-    peak = hist.GetMaximum()
-    mean = hist.GetMean()
-    rms = hist.GetRMS()
-    halfLeft = hist.FindFirstBinAbove(peak/2.)
-    halfRight = hist.FindLastBinAbove(peak/2.)
-    center = 0.5 * (hist.GetBinCenter(halfRight) + hist.GetBinCenter(halfLeft))
-    fwhm = hist.GetBinCenter(halfRight) - hist.GetBinCenter(halfLeft)
-    if fwhm < 2 * hist.GetBinWidth(1):
-      print(f'[X] Warning  - FWHM too narrow {center = }, {fwhm = }, {rms = }, {peak = }')
-      return None
-    fitRange = min(5 * rms, args.GAUS_FIT * fwhm)
-    fcnGaus = self.new_obj(
-      ROOT.TF1(f'fcnFitGaus_{hist.GetName()}_{len(self.root_objs)}',
-      'gaus', center - fitRange, center + fitRange))
-    resultPtr = hist.Fit(fcnGaus,'SQN','', center - fitRange, center + fitRange)
-    try:
-      params = resultPtr.GetParams()
-    except ReferenceError:
-      print(f'[X] Warning  - Fitting failed with {center = }, {fwhm = }, {rms = }, {peak = }')
-      return None
-    mean = params[1]
-    sigma = params[2]
-    fcnGaus.SetRange(mean - 5 * sigma, mean + 5 * sigma)
-    fcnGaus.Draw('same')
-    drawRange = min(15 * rms, 10 * params[2])
-    hist.GetXaxis().SetRangeUser(center - drawRange, center + drawRange)
-    # Draw info
-    pave = self.new_obj(ROOT.TPaveText(0.18, 0.55, 0.45, 0.85,'NDC'))
-    pave.SetFillColor(ROOT.kWhite)
-    self.add_text(pave, f'mean (#mu) = {params[1] * scale:.1f}')
-    self.add_text(pave, f'#sigma = {params[2] * scale:.1f}')
-    self.add_text(pave, f'#chi^{{2}} / NDF = {resultPtr.Chi2():.1f} / {resultPtr.Ndf()}')
-    self.add_text(pave, f'RMS = {rms * scale:.1f}')
-    self.add_text(pave, f'FWHM = {fwhm * scale:.1f}')
-    pave.Draw('same')
-    return resultPtr
-  def DrawHist(self, htmp, title="", option="", optStat=False, samePad=False, optGaus=False, scale=1, **kwargs):
-    ROOT.gStyle.SetOptStat(optStat)
-    if(title == ""):
-      title = htmp.GetTitle()
-    if(not samePad):
-      self.NextPad(title)
-    print("[+] DEBUG - Pad " + str(self.padIndex) + ' : ' + htmp.GetName())
-    if kwargs.get('optNormY') == True:
-      self.normalise_profile_y(htmp)
-    if(option == "colz"):
-      zmax = htmp.GetBinContent(htmp.GetMaximumBin())
-      htmp.GetZaxis().SetRangeUser(0.0 * zmax, 1.1 * zmax)
-    if(htmp.ClassName().startswith('TH')):
-      htmp.SetTitleSize(0.08, "XY")
-      htmp.SetTitleOffset(0.8, "XY")
-    htmp.Draw(option)
-    if(optGaus): self.optimise_hist_gaus(htmp, scale)
-    if(kwargs.get('optLangau') == True):
-      self.optimise_hist_langau(htmp, scale)
-    ROOT.gPad.SetLogx(kwargs.get('optLogX') == True)
-    ROOT.gPad.SetLogy(kwargs.get('optLogY') == True)
-    ROOT.gPad.SetLogz(kwargs.get('optLogZ') == True)
 class CorryPainter(Painter):
+  """ROOT Painter for histograms output from corryvreckan
+  Support modules:
+    - ClusteringSpatial
+    - ClusteringAnalog
+    - Correlations
+    - AnalysisDUT
+    - AnalysisCE65
+    - Tracking4D
+    - DUTAssociation
+    - AlignmentDUTResidual
+  """
   def __init__(self, canvas, printer, **kwargs):
     super().__init__(canvas, printer, **kwargs)
   def select_roi(self, hitmap, bin_width=1, roi_scale=1.5, suffix=''):
@@ -295,7 +68,7 @@ class CorryPainter(Painter):
 c = ROOT.TCanvas('cQA','Corry Performance Figures',2560, 1440)
 c.SetMargin(0.15, 0.1, 0.15, 0.1)
 c.Draw()
-paint = CorryPainter(c, args.print, nx=4, ny=3)
+paint = CorryPainter(c, args.print, nx=4, ny=3, gausFitRange=args.GAUS_FIT)
 paint.PrintCover()
 
 corryHist = ROOT.TFile(args.file)
@@ -319,7 +92,8 @@ paint.DrawEventLoaderEUDAQ2(corryHist.Get(eventModule).Get('ALPIDE_0'))
 
 def DrawClusteringAnalog(self, dirCluster, nextPage=True, suffix=''):
   # Init
-  self.pageName = f"ClusteringAnalog - {detector}"
+  if(nextPage):
+    self.pageName = f"ClusteringAnalog - {detector}"
   # Drawing
   hMap = dirCluster.Get("clusterPositionLocal")
   self.DrawHist(hMap, option="colz")
@@ -618,7 +392,7 @@ def DrawAnalysisDUT(self, dirAna, nextPage=True):
     py = hMapIneff.ProjectionY(f'_py_{xlower}_{xupper}', xlower, xupper)
     nTrackEdge += int(py.GetEntries())
   nTrackPass -= nTrackEdge
-  eff, error, lerr, uerr = simple_efficiency(nAssociatedCluster, nTrackPass)
+  eff, error, lerr, uerr = efficiency_simple(nAssociatedCluster, nTrackPass)
   pave = self.draw_text(0.15, 0.1, 0.7, 0.9)
   self.add_text(pave, f'Raw efficiency : {eff * 100:.1f}^{{+{uerr * 100:.1f}}}_{{-{lerr * 100:.1f}}} %', font=62, size=0.08)
   self.add_text(pave, f'All tracks N_{{trk}} : {nTrack:.0f}', font=62, size=0.05)
