@@ -6,7 +6,10 @@
 import ROOT
   # Colors
 from ROOT import kBlack, kRed, kBlue, kGreen, kViolet, kCyan, kOrange, kPink, kYellow, kMagenta, kGray, kWhite
+  # Markers
 from ROOT import kFullCircle, kFullSquare, kOpenCircle, kOpenSquare, kOpenDiamond, kOpenCross, kFullCross, kFullDiamond, kFullStar, kOpenStar, kOpenCircle, kOpenSquare, kOpenTriangleUp, kOpenTriangleDown, kOpenStar, kOpenDiamond, kOpenCross, kOpenThreeTriangles, kOpenFourTrianglesX, kOpenDoubleDiamond, kOpenFourTrianglesPlus, kOpenCrossX, kFullTriangleUp, kOpenTriangleUp, kFullCrossX, kOpenCrossX, kFullTriangleDown, kFullThreeTriangles, kOpenThreeTriangles, kFullFourTrianglesX, kFullDoubleDiamond, kFullFourTrianglesPlus
+  # Lines
+from ROOT import kSolid, kDashed, kDotted, kDashDotted
   # Objects
 from ROOT import TCanvas, TPaveText
 from ROOT import gPad, gStyle
@@ -54,7 +57,7 @@ def ALICEStyle(graypalette = False):
   ROOT.gStyle.SetLegendFillColor(kWhite)
   ROOT.gStyle.SetLegendFont(42)
 
-def InitALICELabel(x1 = 0.02, y1 = 0.03, x2 = 0.35, y2 = 0.1, size=0.04, type="perf", pos='lt'):
+def InitALICELabel(x1 = 0.02, y1 = 0.03, x2 = 0.35, y2 = 0.1, size=0.04, align=13, type="perf", pos='lt'):
   """Draw text relative to pad edges
   
   Position:
@@ -95,7 +98,7 @@ def InitALICELabel(x1 = 0.02, y1 = 0.03, x2 = 0.35, y2 = 0.1, size=0.04, type="p
   pTxtALICE.SetFillStyle(0)
   pTxtALICE.SetTextSize(size)
   pTxtALICE.SetTextFont(42) # Helvetica
-  pTxtALICE.SetTextAlign(13) # Top Left
+  pTxtALICE.SetTextAlign(align) # Top Left
   if(type == "perf"):
     text = "ALICE Performance"
   elif(type == "simul"):
@@ -135,6 +138,14 @@ def SelectMarker(MARKER_INDEX = 0):
     MARKER_INDEX += 1
 COLOR = SelectColor()
 MARKER = SelectMarker()
+# Line Style
+LINE_STYLE_SET = [kSolid, kDashed, kDotted, kDashDotted]
+LINE_STYLE_INDEX = -1
+def SelectLine(LINE_STYLE_INDEX = 0):
+  while(LINE_STYLE_INDEX < 100):
+    yield LINE_STYLE_SET[LINE_STYLE_INDEX % len(LINE_STYLE_SET)]
+    LINE_STYLE_INDEX += 1
+LINE = SelectLine()
 
 # Painter
 def NewCanvas(name="c1_painter", title="New Canvas", winX=1600, winY=1000, **kwargs):
@@ -163,6 +174,7 @@ class Painter:
     self.padEmpty = True
     self.hasCover = False
     self.hasBackCover = False
+    self.primaryHist = None
     # Dump
     self.root_objs = []         # Temp storage to avoid GC
   def __del__(self):
@@ -236,7 +248,18 @@ class Painter:
     while(self.padIndex % self.subPadNX != 0):
       self.NextPad()
   # Drawing - Histograms
+  def hist_rebin(self, hist, binning):
+    """binning: width, min, max
+    """
+    binwidth = binning[0]
+    valmin = binning[1]
+    valmax = binning[2]
+    nbingroup = int ( binwidth // hist.GetBinWidth(1))
+    hist.Rebin(nbingroup)
+    hist.GetXaxis().SetRangeUser(valmin, valmax)
   def new_hist(self, name, title, binning):
+    """binning: width, min, max
+    """
     binwidth = binning[0]
     valmin = binning[1]
     valmax = binning[2]
@@ -322,7 +345,15 @@ class Painter:
     fiterrs = fcnfit.GetParErrors()
     # Draw
     fcnfit.SetRange(hist.GetXaxis().GetXmin(), hist.GetXaxis().GetXmax())
+    if(kwargs.get('color')):
+      fcnfit.SetLineColor(kwargs['color'])
+    if(kwargs.get('style')):
+      fcnfit.SetLineStyle(kwargs['style'])
+    if(kwargs.get('width')):
+      fcnfit.SetLineWidth(kwargs['width'])
     fcnfit.Draw('lsame')
+    if(kwargs.get('notext')):
+      return fcnfit, resultPtr
     pave = self.draw_text(0.58, 0.55, 0.85, 0.85,title='Landau-Gaussian')
     self.add_text(pave, f'#chi^{{2}} / NDF = {resultPtr.Chi2():.1f} / {resultPtr.Ndf()}')
     self.add_text(pave, f'Mean = {hist.GetMean():.2e}')
@@ -375,6 +406,8 @@ class Painter:
       self.NextPad(title)
     elif not self.padEmpty:
       option = f'{option}same'
+    else:
+      self.primaryHist = htmp
     print("[+] DEBUG - Pad " + str(self.padIndex) + ' : ' + htmp.GetName())
     if kwargs.get('optNormY') == True:
       self.normalise_profile_y(htmp)
