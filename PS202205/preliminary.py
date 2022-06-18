@@ -148,11 +148,13 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   chip_setup = chip_vars['setup']
   noiseFile = ROOT.TFile.Open(chip_vars['noise'])
   hNoiseMap = noiseFile.Get('hnoisepl1')
+  hNoiseMapENC = painter.new_obj(hNoiseMap.Clone(f'hNoiseMapENC_{variant}'))
+  hNoiseMapENC.UseCurrentStyle()
   lgd = painter.new_obj(ROOT.TLegend(0.75, 0.55, 0.90, 0.7))
   histMax = 0
   for sub in database['submatrix']:
     vars = chip_vars[sub]
-    hsub = painter.new_hist(f'hnoise_{chip}_{sub}','Noise Distribution;Equivalent Noise Charge (#it{e^{-}});# Pixels',
+    hsub = painter.new_hist(f'hnoise_{chip}_{sub}','Noise Distribution;Equivalent Noise Charge (e^{-});# Pixels',
       chip_vars['binning_noiseENC'])
     hsub.SetLineColor(color_vars[sub])
     hsub.SetLineWidth(2)
@@ -161,7 +163,9 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
     lgd.AddEntry(hsub,vars['title'])
     for ix in range(vars['edge'][0], vars['edge'][1]+1):
       for iy in range(chip_vars['PIXEL_NY']):
-        hsub.Fill(hNoiseMap.GetBinContent(ix+1,iy+1) / vars['calibration'])
+        enc = hNoiseMap.GetBinContent(ix+1,iy+1) / vars['calibration']
+        hsub.Fill(enc)
+        hNoiseMapENC.Fill(ix+1, iy+1, enc)
     if(hsub.GetMaximum() > histMax):
       histMax = hsub.GetMaximum()
     painter.DrawHist(hsub, samePad=True)
@@ -178,6 +182,12 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
     f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
     size=0.03)
   ptxt.Draw('same')
+  # Noise Map - ENC
+  hNoiseMapENC.UseCurrentStyle()
+  hNoiseMapENC.SetTitle('Noise map ENC;Column (pixel);Row (pixel);ENC (e^{-})')
+  painter.DrawHist(hNoiseMapENC, option='colz')
+  ROOT.gPad.SetRightMargin(0.12)
+  palette = painter.set_hist_palette(hNoiseMapENC)
   painter.NextPage()
 
 def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=False):
@@ -215,7 +225,7 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
       if optNorm:
         histName = f'{histNameCharge}norm_{chip}_{sub}'
       hCharge = painter.new_hist(histName,
-        f'{histXTitle};{histXTitle} '+'(#it{e^{-}});Entries;',
+        f'{histXTitle};{histXTitle} '+'(e^{-});Entries;',
         chip_vars[binningCharge])
       hCharge.SetBit(ROOT.TH1.kIsNotW)
       hCharge.GetYaxis().SetMaxDigits(4)
@@ -238,7 +248,7 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
         hCharge.Scale(1/hCharge.Integral('width'))
         hCharge.SetYTitle(f'Entries (normalised)')
       else:
-        hCharge.SetYTitle(f'Entries / {hCharge.GetBinWidth(1):.0f} ' + '#it{e^{-}}')
+        hCharge.SetYTitle(f'Entries / {hCharge.GetBinWidth(1):.0f} ' + 'e^{-}')
       if(hCharge.GetMaximum() > histMax):
         histMax = hCharge.GetMaximum()
       painter.hist_rebin(hChargeRaw, sub_vars['binning_charge'])

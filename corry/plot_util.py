@@ -151,6 +151,9 @@ LINE = SelectLine()
 def NewCanvas(name="c1_painter", title="New Canvas", winX=1600, winY=1000, **kwargs):
   return TCanvas(name, title, winX,winY)
 
+def SetArg(args, key, defaultValue):
+  return args[key] if args.get(key) else defaultValue
+
 class Painter:
   """Master of ROOT drawing and plotting
   Output stored in PDF file
@@ -166,6 +169,11 @@ class Painter:
     # Configuration
     self.subPadNX = kwargs['nx'] if kwargs.get('nx') else 1
     self.subPadNY = kwargs['ny'] if kwargs.get('ny') else 1
+    0.14, 0.02, 0.12, 0.02
+    self.marginTop = SetArg(kwargs, 'marginTop', 0.02)
+    self.marginBottom = SetArg(kwargs, 'marginBottom', 0.12)
+    self.marginLeft = SetArg(kwargs, 'marginLeft', 0.14)
+    self.marginRight = SetArg(kwargs, 'marginRight', 0.02)
     # Parameters
     self.GAUS_FIT_RANGE = kwargs['gausFitRange'] if kwargs.get('gausFitRange') else 1 # ratio of FWHM
     # Status
@@ -251,6 +259,17 @@ class Painter:
     while(self.padIndex % self.subPadNX != 0):
       self.NextPad()
   # Drawing - Histograms
+  def set_hist_palette(self, hist : ROOT.TH2, width=0.05):
+    palette = hist.GetListOfFunctions().FindObject("palette")
+    totalWidth = width + 0.05 + 0.05 # palette, label, title
+    # Pad
+    ROOT.gPad.SetRightMargin(totalWidth + self.marginRight)
+    # Palette
+    palette.SetX1NDC(1. - totalWidth)
+    palette.SetX2NDC(1. - totalWidth + width)
+    palette.SetY1NDC(self.marginBottom)
+    palette.SetY2NDC(1. - self.marginTop)
+    return palette
   def hist_rebin(self, hist, binning):
     """binning: width, min, max
     """
@@ -283,6 +302,7 @@ class Painter:
         pave = self.draw_text(ix * wx + xlower, iy * wy + ylower, (ix+1) * wx + xlower, (iy+1)*wx + xlower)
         self.add_text(pave,f'{val:.3f}',size=0.06, font=62, align=22)
         pave.Draw('same')
+  # Calculation
   def normalise_profile_y(self, hist):
     for ix in range(1,hist.GetNbinsX()+1):
       hpfx = hist.ProjectionY(f'_py_{ix}', ix, ix)
@@ -307,6 +327,7 @@ class Painter:
       print(f'[X] Warning  - Histogram {hist.GetName()} - FWHM too narrow {center = :.2e}, {fwhm = :.2e}, {rms = :.2e}, {peak = :.2e}')
       return rms, mean
     return fwhm, center
+  # Fitting -> Fitter?
   def optimise_hist_langau(self, hist, scale=1, **kwargs):
     """Adaptive fitter for Landau-Gaussian distribution
     """
