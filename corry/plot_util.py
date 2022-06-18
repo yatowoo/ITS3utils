@@ -183,6 +183,9 @@ class Painter:
   def new_obj(self, obj):
     self.root_objs.append(obj)
     return self.root_objs[-1]
+  def new_legend(self, xlow, ylow, xup, yup):
+    lgd = self.new_obj(ROOT.TLegend(xlow, ylow, xup, yup))
+    return lgd
   def add_text(self, pave : ROOT.TPaveText, s : str, color=None, size=0.04, align=11, font=42):
     text = pave.AddText(s)
     text.SetTextAlign(align)
@@ -311,8 +314,8 @@ class Painter:
     N_PARS = 4
     fwhm, center = self.estimate_fwhm(hist)
     fitRange = kwargs.get('fitRange')
-    if(not fitRange): fitRange = [0.3*hist.GetMean(), 3*hist.GetMean()]
-    area = hist.GetEntries()
+    if(not fitRange): fitRange = [0.3*hist.GetMean(), 1.5*hist.GetMean()]
+    area = hist.Integral()
     pars = [
       [fwhm * 0.1, fwhm * 0., fwhm * 1],
       [center, center * 0.5, center * 2],

@@ -2,11 +2,11 @@
 
 # Plot preliminary results for approval
 
-from turtle import color
 import plot_util
 import ROOT
 from copy import deepcopy
 from pprint import pprint
+import datetime
 
 # Binning: width, min, max
 database = {
@@ -15,11 +15,12 @@ database = {
   'A4':{
     'template': 'B4',
     'process': 'std',
+    'binning_seedChargeENC':[50, 0, 3100],
     'noise':'qa/PS-A4_HV10-noisemap.root',
     'AC':{
       'calibration': 4.167,
       'result':{
-        'file': 'output/analysisCE65-AC_cls500snr3sum3x3_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-AC_cls1000snr3sum3x3_PS-A4_HV10.root',
       },
     },
     'DC':{
@@ -56,7 +57,8 @@ database = {
       'PSUB': 0,
     },
     'binning_noiseENC':[1.0, 0, 100],
-    'binning_chargeENC':[50, 0, 5000],
+    'binning_chargeENC':[50, 0, 5100],
+    'binning_seedChargeENC':[50, 0, 3100],
     'noise':'qa/PS-B4_HV10-noisemap.root',
     'AC':{
       'title': 'AC amp.',
@@ -65,7 +67,7 @@ database = {
       'binning_charge':[100, 0, 15000],
       'calibration': 4.348,
       'result':{
-        'seed_snr': 2,
+        'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
         'file':'output/analysisCE65-AC_cls500snr3sum3x3_PS-B4_HV10.root',
@@ -78,10 +80,10 @@ database = {
       'binning_noise':[5, 0, 400],
       'binning_charge':[100, 0, 15000],
       'result':{
-        'seed_snr': 2,
+        'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-DC_cls500snr5sum3x3_PS-B4_HV10.root',
+        'file':'output/analysisCE65-DC_cls1000snr3sum3x3_PS-B4_HV10.root',
       }
     },
     'SF':{
@@ -91,10 +93,10 @@ database = {
       'binning_noise':[1, 0, 100],
       'binning_charge':[50, 0, 5000],
       'result':{
-        'seed_snr': 2,
+        'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-SF_cls250snr2sum3x3_PS-B4_HV10.root',
+        'file':'output/analysisCE65-SF_cls200snr3sum3x3_PS-B4_HV10.root',
       }
     },
   }
@@ -120,19 +122,19 @@ for sub in database['submatrix']:
   color_vars[sub] = next(plot_util.COLOR)
 marker_vars = {}
 line_vars = {}
-plot_util.MARKER_SET = plot_util.MARKER_SET_ALICE
+plot_util.MARKER_SET = plot_util.MARKER_SET_DEFAULT
 for chips in database['variant']:
   marker_vars[chips] = next(plot_util.MARKER)
   line_vars[chips] = next(plot_util.LINE)
 
-def plot_alice(painter : plot_util.Painter, x1 = 0.02, y1 = 0.03, x2 = 0.40, y2 = 0.17,
+def plot_alice(painter : plot_util.Painter, x1 = 0.02, y1 = 0.03, x2 = 0.47, y2 = 0.17,
  size=0.04, pos='lt'):
   """
   """
   label = painter.new_obj(plot_util.InitALICELabel(x1, y1, x2, y2, 
-    align=12, type='ALICE ITS3-WP3 Preliminiary', pos=pos))
+    align=12, type='#bf{ALICE ITS3-WP3} beam test #it{preliminiary}', pos=pos))
   painter.add_text(label, 'Beam test @CERN-PS May 2022, 10 GeV/#it{c} #pi^{-}', size=0.03)
-  painter.add_text(label, f'Plotted on 17 Jun. 2022', size=0.03)
+  painter.add_text(label, datetime.datetime.now().strftime("Plotted on %d %b %Y"), size=0.03)
   label.Draw('same')
   return label
 
@@ -178,10 +180,25 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   ptxt.Draw('same')
   painter.NextPage()
 
-def plot_cluster_charge(painter : plot_util.Painter):
+def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=False):
   """Cluster charge plot for all variants and sub-matrix
   """
-  painter.pageName = 'Cluster Charge'
+  if(optSeed):
+    painter.pageName = 'Seed Charge'
+    histNameSource = 'seedChargeAssociated'
+    histNameCharge = 'hSeedChargeENC'
+    histNameRaw = 'hSeedCharge'
+    histXTitle = 'Seed Charge'
+    binningCharge = 'binning_seedChargeENC'
+  else:
+    painter.pageName = 'Cluster Charge'
+    histNameSource = 'clusterChargeAssociated'
+    histNameCharge = 'hClusterChargeENC'
+    histNameRaw = 'hClusterCharge'
+    histXTitle = 'Cluster Charge'
+    binningCharge = 'binning_chargeENC'
+  if optNorm:
+    ROOT.gPad.SetTopMargin(0.05)
   histMax = 0
   lgd = painter.new_obj(ROOT.TLegend(0.60, 0.3, 0.90, 0.6))
   for chip in database['variant']:
@@ -192,12 +209,16 @@ def plot_cluster_charge(painter : plot_util.Painter):
       resultFile = ROOT.TFile.Open(corry_vars['file'])
       dirAna = resultFile.Get('AnalysisCE65')
       dirAna = dirAna.Get('CE65_4')
-      hChargeRaw = painter.new_obj(dirAna.Get('clusterChargeAssociated').Clone(f'hClusterCharge_{chip}_{sub}'))
+      hChargeRaw = painter.new_obj(dirAna.Get(histNameSource).Clone(f'{histNameRaw}_{chip}_{sub}'))
       hChargeRaw.SetDirectory(0x0)
-      hCharge = painter.new_hist(f'hClusterChargeENC_{chip}_{sub}',
-        'Cluster charge;Cluster charge (#it{e^{-}});# Entries;',
-        chip_vars['binning_chargeENC'])
+      histName = f'{histNameCharge}_{chip}_{sub}'
+      if optNorm:
+        histName = f'{histNameCharge}norm_{chip}_{sub}'
+      hCharge = painter.new_hist(histName,
+        f'{histXTitle};{histXTitle} '+'(#it{e^{-}});Entries;',
+        chip_vars[binningCharge])
       hCharge.SetBit(ROOT.TH1.kIsNotW)
+      hCharge.GetYaxis().SetMaxDigits(4)
       hCharge.SetLineColor(color_vars[sub])
       hCharge.SetLineStyle(line_vars[chip])
       hCharge.SetMarkerColor(color_vars[sub])
@@ -206,27 +227,34 @@ def plot_cluster_charge(painter : plot_util.Painter):
       hCharge.SetDirectory(0x0)
       # Scale with calibration
       scale = sub_vars['calibration']
-      binmin = hChargeRaw.FindBin(chip_vars['binning_chargeENC'][1] * scale)
-      binmax = hChargeRaw.FindBin(chip_vars['binning_chargeENC'][2] * scale)
+      binmin = hChargeRaw.FindBin(chip_vars[binningCharge][1] * scale)
+      binmax = hChargeRaw.FindBin(chip_vars[binningCharge][2] * scale)
       for ix in range(binmin, binmax):
         calibratedX = hChargeRaw.GetBinCenter(ix) / scale
         val = hChargeRaw.GetBinContent(ix)
         hCharge.Fill(calibratedX, val)
       hCharge.Sumw2()
+      if(optNorm):
+        hCharge.Scale(1/hCharge.Integral('width'))
+        hCharge.SetYTitle(f'Entries (normalised)')
+      else:
+        hCharge.SetYTitle(f'Entries / {hCharge.GetBinWidth(1):.0f} ' + '#it{e^{-}}')
       if(hCharge.GetMaximum() > histMax):
         histMax = hCharge.GetMaximum()
       painter.hist_rebin(hChargeRaw, sub_vars['binning_charge'])
       # Draw
       painter.DrawHist(hCharge, samePad=True)
         # Fitting
-      painter.optimise_hist_langau(hCharge, fitRange=[300, 1200],
+      fit, result = painter.optimise_hist_langau(hCharge,
         color=color_vars[sub], style=line_vars[chip], notext=True)
+      result.Print() # DEBUG
         # Legend
       lgd.AddEntry(hCharge, f'{chip_vars["process"]} {sub_vars["title"]}'
-        f' (SNR_{{seed}}={corry_vars["seed_snr"]})')
+        f' (SNR_{{seed}}>{corry_vars["seed_snr"]})')
       resultFile.Close()
   painter.primaryHist.GetYaxis().SetRangeUser(0, HIST_Y_SCALE * histMax)
   # Text
+  painter.draw_text(0.60, 0.6, 0.90, 0.65, 'Fitting by Landau-Gaussian function', size=0.03, font=42).Draw('same')
   lgd.SetTextSize(0.035)
   lgd.Draw('same')
   plot_alice(painter)
@@ -240,11 +268,15 @@ def plot_cluster_charge(painter : plot_util.Painter):
   ptxt.Draw('same')
   painter.NextPage()
 
+def plot_seed_charge(painter : plot_util.Painter, optNorm=False):
+  return plot_cluster_charge(painter, optSeed=True, optNorm=optNorm)
+
 def plot_cluster_shape(painter : plot_util.Painter):
   """
   """
   sub = 'SF'
   for chip in database['variant']:
+    lgd = painter.new_legend(0.65, 0.35, 0.95, 0.40)
     painter.pageName = f'ClusterShape - {chip}_{sub}'
     chip_vars = database[chip]
     chip_setup = chip_vars['setup']
@@ -266,19 +298,22 @@ def plot_cluster_shape(painter : plot_util.Painter):
     hPx.SetLineStyle(ROOT.kDashed) # dash-dot
     hPx.SetLineWidth(4)
     hPx.SetMarkerColor(ROOT.kBlack)
-    hPx.SetMarkerStyle(marker_vars[chip])
-    hPx.SetMarkerSize(2)
+    hPx.SetMarkerStyle(plot_util.kFullStar)
+    hPx.SetMarkerSize(4)
     painter.DrawHist(hRatio, option='colz', optNormY=True)
     hPx.Draw('same')
+    lgd.AddEntry(hPx, '<#it{R}_{n}> (average)')
+    lgd.Draw('same')
     # Label
     plot_alice(painter, pos='rb')
     # Text info
-    ptxt = painter.draw_text(0.65, 0.50, 0.95, 0.65)
+    ptxt = painter.draw_text(0.65, 0.45, 0.95, 0.65)
     painter.add_text(ptxt, f'Chip : CE65 (MLR1)')
     painter.add_text(ptxt, f'Process : {chip_vars["process"]} (split {chip_vars["split"]})')
     painter.add_text(ptxt,
-      f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
+      f'V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
       size=0.03)
+    painter.add_text(ptxt,f'Sub-matrix : {sub}')
     ptxt.Draw('same')
     painter.NextPage()
   # Draw
@@ -295,6 +330,9 @@ def plot_preliminary():
   plot_noise(painter,'B4')
   plot_noise(painter,'A4')
   plot_cluster_charge(painter)
+  plot_cluster_charge(painter, optNorm=True)
+  plot_seed_charge(painter)
+  plot_seed_charge(painter, optNorm=True)
   plot_cluster_shape(painter)
   painter.PrintBackCover('-')
 
