@@ -17,16 +17,19 @@ database = {
     'process': 'std',
     'noise':'qa/PS-A4_HV10-noisemap.root',
     'AC':{
+      'calibration': 4.167,
       'result':{
         'file': 'output/analysisCE65-AC_cls500snr3sum3x3_PS-A4_HV10.root',
       },
     },
     'DC':{
+      'calibration': 5.556,
       'result':{
         'file': 'output/analysisCE65-DC_cls1200snr2sum3x3_PS-A4_HV10.root',
       },
     },
     'SF':{
+      'calibration': 1.493,
       'result':{
         'file': 'output/analysisCE65-SF_cls300snr2sum3x3_PS-A4_HV10.root',
       },
@@ -60,7 +63,7 @@ database = {
       'edge':[0, 20],
       'binning_noise':[5, 0, 400],
       'binning_charge':[100, 0, 15000],
-      'calibration': 5.0,
+      'calibration': 4.348,
       'result':{
         'seed_snr': 2,
         'seed_charge': 200,
@@ -71,7 +74,7 @@ database = {
     'DC':{
       'title': 'DC amp.',
       'edge':[21, 41],
-      'calibration': 5.0,
+      'calibration': 3.704,
       'binning_noise':[5, 0, 400],
       'binning_charge':[100, 0, 15000],
       'result':{
@@ -84,7 +87,7 @@ database = {
     'SF':{
       'title': 'SF',
       'edge':[42, 63],
-      'calibration': 1.0,
+      'calibration': 1.205,
       'binning_noise':[1, 0, 100],
       'binning_charge':[50, 0, 5000],
       'result':{
@@ -122,11 +125,12 @@ for chips in database['variant']:
   marker_vars[chips] = next(plot_util.MARKER)
   line_vars[chips] = next(plot_util.LINE)
 
-def plot_alice(painter : plot_util.Painter, x1 = 0.02, y1 = 0.03, x2 = 0.35, y2 = 0.17, size=0.04):
+def plot_alice(painter : plot_util.Painter, x1 = 0.02, y1 = 0.03, x2 = 0.40, y2 = 0.17,
+ size=0.04, pos='lt'):
   """
   """
   label = painter.new_obj(plot_util.InitALICELabel(x1, y1, x2, y2, 
-    align=12, type='ALICE ITS3-WP3 Preliminiary'))
+    align=12, type='ALICE ITS3-WP3 Preliminiary', pos=pos))
   painter.add_text(label, 'Beam test @CERN-PS May 2022, 10 GeV/#it{c} #pi^{-}', size=0.03)
   painter.add_text(label, f'Plotted on 17 Jun. 2022', size=0.03)
   label.Draw('same')
@@ -236,10 +240,48 @@ def plot_cluster_charge(painter : plot_util.Painter):
   ptxt.Draw('same')
   painter.NextPage()
 
-def plot_cluster_shape(painter):
+def plot_cluster_shape(painter : plot_util.Painter):
   """
   """
-
+  sub = 'SF'
+  for chip in database['variant']:
+    painter.pageName = f'ClusterShape - {chip}_{sub}'
+    chip_vars = database[chip]
+    chip_setup = chip_vars['setup']
+    sub_vars = chip_vars[sub]
+    corry_vars = sub_vars['result']
+    resultFile = ROOT.TFile.Open(corry_vars['file'])
+    dirAna = resultFile.Get('AnalysisCE65')
+    dirAna = dirAna.Get('CE65_4')
+    dirCluster = dirAna.Get('cluster')
+    hRatio = painter.new_obj(dirCluster.Get("clusterChargeRatio").Clone(f'hClusterChargeRatio_{chip}_{sub}'))
+    hRatio.UseCurrentStyle()
+    hRatio.SetXTitle('#it{R}_{n} (#sum highest N pixels)')
+    hRatio.SetYTitle('Accumulated charge ratio')
+    hRatio.RebinY(int(0.02 // hRatio.GetYaxis().GetBinWidth(1) ))
+    hRatio.GetXaxis().SetRangeUser(0,10)
+    hRatio.GetYaxis().SetRangeUser(0,1.2)
+    hPx = painter.new_obj(hRatio.ProfileX())
+    hPx.SetLineColor(ROOT.kBlack)
+    hPx.SetLineStyle(ROOT.kDashed) # dash-dot
+    hPx.SetLineWidth(4)
+    hPx.SetMarkerColor(ROOT.kBlack)
+    hPx.SetMarkerStyle(marker_vars[chip])
+    hPx.SetMarkerSize(2)
+    painter.DrawHist(hRatio, option='colz', optNormY=True)
+    hPx.Draw('same')
+    # Label
+    plot_alice(painter, pos='rb')
+    # Text info
+    ptxt = painter.draw_text(0.65, 0.50, 0.95, 0.65)
+    painter.add_text(ptxt, f'Chip : CE65 (MLR1)')
+    painter.add_text(ptxt, f'Process : {chip_vars["process"]} (split {chip_vars["split"]})')
+    painter.add_text(ptxt,
+      f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
+      size=0.03)
+    ptxt.Draw('same')
+    painter.NextPage()
+  # Draw
 def plot_tracking_residual(painter):
   """
   """
@@ -253,6 +295,7 @@ def plot_preliminary():
   plot_noise(painter,'B4')
   plot_noise(painter,'A4')
   plot_cluster_charge(painter)
+  plot_cluster_shape(painter)
   painter.PrintBackCover('-')
 
 if __name__ == '__main__':
