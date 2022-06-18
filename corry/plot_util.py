@@ -364,7 +364,7 @@ class Painter:
       self.add_text(pave, f'{fcnfit.GetParName(ipar)} = {params[ipar]:.2e}')
     pave.Draw('same')
     return fcnfit, resultPtr
-  def optimise_hist_gaus(self, hist, scale=1):
+  def optimise_hist_gaus(self, hist, scale=1, **kwargs):
     peak = hist.GetMaximum()
     mean = hist.GetMean()
     rms = hist.GetRMS()
@@ -391,6 +391,15 @@ class Painter:
     fcnGaus.Draw('same')
     drawRange = min(15 * rms, 10 * params[2])
     hist.GetXaxis().SetRangeUser(center - drawRange, center + drawRange)
+    if(kwargs.get('color')):
+      fcnGaus.SetLineColor(kwargs['color'])
+    if(kwargs.get('style')):
+      fcnGaus.SetLineStyle(kwargs['style'])
+    if(kwargs.get('width')):
+      fcnGaus.SetLineWidth(kwargs['width'])
+    fcnGaus.Draw('lsame')
+    if(kwargs.get('notext')):
+      return fcnGaus, resultPtr
     # Draw info
     pave = self.new_obj(ROOT.TPaveText(0.18, 0.55, 0.45, 0.85,'NDC'))
     pave.SetFillColor(ROOT.kWhite)

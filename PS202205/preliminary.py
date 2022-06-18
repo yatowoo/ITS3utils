@@ -15,7 +15,7 @@ database = {
   'A4':{
     'template': 'B4',
     'process': 'std',
-    'binning_seedChargeENC':[50, 0, 3100],
+    'binning_seedChargeENC':[25, 0, 3100],
     'noise':'qa/PS-A4_HV10-noisemap.root',
     'AC':{
       'calibration': 4.167,
@@ -133,7 +133,7 @@ def plot_alice(painter : plot_util.Painter, x1 = 0.02, y1 = 0.03, x2 = 0.47, y2 
   """
   label = painter.new_obj(plot_util.InitALICELabel(x1, y1, x2, y2, 
     align=12, type='#bf{ALICE ITS3-WP3} beam test #it{preliminiary}', pos=pos))
-  painter.add_text(label, 'Beam test @CERN-PS May 2022, 10 GeV/#it{c} #pi^{-}', size=0.03)
+  painter.add_text(label, '@CERN-PS May 2022, 10 GeV/#it{c} #pi^{-}', size=0.03)
   painter.add_text(label, datetime.datetime.now().strftime("Plotted on %d %b %Y"), size=0.03)
   label.Draw('same')
   return label
@@ -317,9 +317,71 @@ def plot_cluster_shape(painter : plot_util.Painter):
     ptxt.Draw('same')
     painter.NextPage()
   # Draw
-def plot_tracking_residual(painter):
+def plot_tracking_residual(painter : plot_util.Painter, axis='X'):
   """
   """
+  histMax = 0
+  painter.pageName = f'Tracking residual - {axis}'
+  histNameSource = f'residuals{axis}'
+  if axis == 'X':
+    histXTitle = '#it{x}_{track} - #it{x}_{cluster} (#mum)'
+  elif axis == 'Y':
+    histXTitle = '#it{y}_{track} - #it{y}_{cluster} (#mum)'
+  else:
+    print(f'[X] Error - UNKNOWN {axis = }')
+  lgd = painter.new_obj(ROOT.TLegend(0.57, 0.3, 0.90, 0.6))
+  for chip in database['variant']:
+    chip_vars = database[chip]
+    for sub in database['submatrix']:
+      sub_vars = chip_vars[sub]
+      corry_vars = sub_vars['result']
+      resultFile = ROOT.TFile.Open(corry_vars['file'])
+      dirAna = resultFile.Get('AnalysisCE65')
+      dirAna = dirAna.Get('CE65_4')
+      dirTracking = dirAna.Get('global_residuals')
+      hTrack = painter.new_obj(dirTracking.Get(histNameSource).Clone(f'{histNameSource}_{chip}_{sub}'))
+      hTrack.UseCurrentStyle()
+      hTrack.SetDirectory(0x0)
+      resultFile.Close()
+      # Norm
+      hTrack.Rebin(int(1. / hTrack.GetBinWidth(1)))
+      hTrack.SetYTitle(f'Entriess / {hTrack.GetBinWidth(1)} #mum')
+      hTrack.Scale(1/hTrack.Integral('width'))
+      if(hTrack.GetMaximum() > histMax):
+        histMax = hTrack.GetMaximum()
+      # Style
+      hTrack.SetXTitle(histXTitle)
+      hTrack.SetYTitle(f'Entries (normalised)')
+      hTrack.SetLineColor(color_vars[sub])
+      hTrack.SetLineStyle(line_vars[chip])
+      hTrack.SetMarkerColor(color_vars[sub])
+      hTrack.SetMarkerStyle(marker_vars[chip])
+      hTrack.SetMarkerSize(1.5)
+      painter.DrawHist(hTrack, samePad=True)
+      # Fitting
+      fit, result = painter.optimise_hist_gaus(hTrack,
+        color=color_vars[sub], style=line_vars[chip], notext=True)
+      result.Print() # DEBUG
+      lgd.AddEntry(hTrack, f'{chip_vars["process"]} {sub_vars["title"]}'
+        f' (#sigma = {fit.GetParameter(2):.1f} #mum)')
+      # End - sub
+    # End - chip
+  painter.primaryHist.GetXaxis().SetRangeUser(-30., 50)
+  painter.primaryHist.GetYaxis().SetRangeUser(0, HIST_Y_SCALE * histMax)
+  # Text
+  painter.draw_text(0.57, 0.6, 0.90, 0.65, 'Fitting by Gaussian function', size=0.03, font=42).Draw('same')
+  lgd.SetTextSize(0.035)
+  lgd.Draw('same')
+  plot_alice(painter)
+  ptxt = painter.draw_text(0.62, 0.75, 0.95, 0.92)
+  painter.add_text(ptxt, f'Chip : CE65 (MLR1)')
+  painter.add_text(ptxt, f'Process : std/mod_gap (split {chip_vars["split"]})')
+  chip_setup = chip_vars['setup']
+  painter.add_text(ptxt,
+    f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
+    size=0.03)
+  ptxt.Draw('same')
+  painter.NextPage()
 
 def plot_preliminary():
   plot_util.ALICEStyle()
@@ -334,6 +396,8 @@ def plot_preliminary():
   plot_seed_charge(painter)
   plot_seed_charge(painter, optNorm=True)
   plot_cluster_shape(painter)
+  plot_tracking_residual(painter,axis='X')
+  plot_tracking_residual(painter,axis='Y')
   painter.PrintBackCover('-')
 
 if __name__ == '__main__':
