@@ -20,19 +20,19 @@ database = {
     'AC':{
       'calibration': 4.167,
       'result':{
-        'file': 'output/analysisCE65-AC_cls1000snr3sum3x3_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-AC_cls500seed500snr3sum3x3_chi2ndf1_PS-A4_HV10.root',
       },
     },
     'DC':{
       'calibration': 5.556,
       'result':{
-        'file': 'output/analysisCE65-DC_cls1200snr2sum3x3_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-DC_cls500seed500snr3sum3x3_chi2ndf1_PS-A4_HV10.root',
       },
     },
     'SF':{
       'calibration': 1.493,
       'result':{
-        'file': 'output/analysisCE65-SF_cls300snr2sum3x3_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-SF_cls150seed150snr3sum3x3_chi2ndf1_PS-A4_HV10.root',
       },
     },
   },
@@ -70,7 +70,7 @@ database = {
         'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-AC_cls500snr3sum3x3_PS-B4_HV10.root',
+        'file':'output/analysisCE65-AC_cls500seed500snr3sum3x3_chi2ndf1_PS-B4_HV10.root',
       }
     },
     'DC':{
@@ -83,7 +83,7 @@ database = {
         'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-DC_cls1000snr3sum3x3_PS-B4_HV10.root',
+        'file':'output/analysisCE65-DC_cls500seed500snr3sum3x3_chi2ndf1_PS-B4_HV10.root',
       }
     },
     'SF':{
@@ -96,7 +96,7 @@ database = {
         'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-SF_cls200snr3sum3x3_PS-B4_HV10.root',
+        'file':'output/analysisCE65-SF_cls150seed150snr3sum3x3_chi2ndf1_PS-B4_HV10.root',
       }
     },
   }
@@ -282,7 +282,7 @@ def plot_seed_charge(painter : plot_util.Painter, optNorm=False):
   return plot_cluster_charge(painter, optSeed=True, optNorm=optNorm)
 
 def plot_cluster_shape(painter : plot_util.Painter):
-  """
+  """Cluster distribution in a window around seed
   """
   sub = 'SF'
   for chip in database['variant']:
