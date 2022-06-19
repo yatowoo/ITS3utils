@@ -174,6 +174,7 @@ class Painter:
     self.marginBottom = SetArg(kwargs, 'marginBottom', 0.12)
     self.marginLeft = SetArg(kwargs, 'marginLeft', 0.14)
     self.marginRight = SetArg(kwargs, 'marginRight', 0.02)
+    self.showGrid = SetArg(kwargs, 'showGrid', False)
     # Parameters
     self.GAUS_FIT_RANGE = kwargs['gausFitRange'] if kwargs.get('gausFitRange') else 1 # ratio of FWHM
     # Status
@@ -254,7 +255,8 @@ class Painter:
     self.canvas.cd(self.padIndex)
     self.padEmpty = True
     # Style
-    ROOT.gPad.SetMargin(0.14, 0.02, 0.12, 0.02)
+    ROOT.gPad.SetMargin(self.marginLeft, self.marginRight, self.marginBottom, self.marginTop)
+    ROOT.gPad.SetGrid(self.showGrid, self.showGrid)
   def NextRow(self):
     while(self.padIndex % self.subPadNX != 0):
       self.NextPad()

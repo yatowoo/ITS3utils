@@ -165,7 +165,7 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
       for iy in range(chip_vars['PIXEL_NY']):
         enc = hNoiseMap.GetBinContent(ix+1,iy+1) / vars['calibration']
         hsub.Fill(enc)
-        hNoiseMapENC.Fill(ix+1, iy+1, enc)
+        hNoiseMapENC.SetBinContent(ix+1, iy+1, enc)
     if(hsub.GetMaximum() > histMax):
       histMax = hsub.GetMaximum()
     painter.DrawHist(hsub, samePad=True)
@@ -210,7 +210,8 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
   if optNorm:
     ROOT.gPad.SetTopMargin(0.05)
   histMax = 0
-  lgd = painter.new_obj(ROOT.TLegend(0.60, 0.3, 0.90, 0.6))
+  snrMin = 10
+  lgd = painter.new_obj(ROOT.TLegend(0.62, 0.2, 0.93, 0.5))
   for chip in database['variant']:
     chip_vars = database[chip]
     for sub in database['submatrix']:
@@ -251,6 +252,8 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
         hCharge.SetYTitle(f'Entries / {hCharge.GetBinWidth(1):.0f} ' + 'e^{-}')
       if(hCharge.GetMaximum() > histMax):
         histMax = hCharge.GetMaximum()
+      if(corry_vars["seed_snr"] < snrMin):
+        snrMin = corry_vars["seed_snr"]
       painter.hist_rebin(hChargeRaw, sub_vars['binning_charge'])
       # Draw
       painter.DrawHist(hCharge, samePad=True)
@@ -259,12 +262,19 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
         color=color_vars[sub], style=line_vars[chip], notext=True)
       result.Print() # DEBUG
         # Legend
-      lgd.AddEntry(hCharge, f'{chip_vars["process"]} {sub_vars["title"]}'
-        f' (SNR_{{seed}}>{corry_vars["seed_snr"]})')
+      lgd.AddEntry(hCharge, f'{chip_vars["process"]} {sub_vars["title"]}')
       resultFile.Close()
+  # Pad style
   painter.primaryHist.GetYaxis().SetRangeUser(0, HIST_Y_SCALE * histMax)
-  # Text
-  painter.draw_text(0.60, 0.6, 0.90, 0.65, 'Fitting by Landau-Gaussian function', size=0.03, font=42).Draw('same')
+  if(painter.showGrid): # FIXME: failed to show by painter itself
+    ROOT.gPad.SetGrid(1,1)
+  # Clustering
+  pTxtClustering = painter.draw_text(0.62, 0.60, 0.90, 0.70)
+  painter.add_text(pTxtClustering, f'Cluster window: 3#times3')
+  painter.add_text(pTxtClustering, f'Seed charge > 100 e^{{-}}, SNR > {snrMin}')
+  pTxtClustering.Draw('same')
+  # Legend
+  painter.draw_text(0.62, 0.5, 0.90, 0.55, 'Fitting by Landau-Gaussian function', size=0.03, font=42).Draw('same')
   lgd.SetTextSize(0.035)
   lgd.Draw('same')
   plot_alice(painter)
@@ -298,8 +308,8 @@ def plot_cluster_shape(painter : plot_util.Painter):
     dirCluster = dirAna.Get('cluster')
     hRatio = painter.new_obj(dirCluster.Get("clusterChargeRatio").Clone(f'hClusterChargeRatio_{chip}_{sub}'))
     hRatio.UseCurrentStyle()
-    hRatio.SetXTitle('#it{R}_{n} (#sum highest N pixels)')
-    hRatio.SetYTitle('Accumulated charge ratio')
+    hRatio.SetYTitle('#it{R}_{n} (#sum #it{q}_{n} charge ratio)')
+    hRatio.SetXTitle('Number of pixels in cluster')
     hRatio.RebinY(int(0.02 // hRatio.GetYaxis().GetBinWidth(1) ))
     hRatio.GetXaxis().SetRangeUser(0,10)
     hRatio.GetYaxis().SetRangeUser(0,1.2)
@@ -397,7 +407,8 @@ def plot_preliminary():
   plot_util.ALICEStyle()
   painter = plot_util.Painter(
     printer='preliminary.pdf',
-    winX=1600, winY=1000, nx=1, ny=1)
+    winX=1600, winY=1000, nx=1, ny=1,
+    showGrid=True)
   painter.PrintCover('CE65 Preliminary')
   plot_noise(painter,'B4')
   plot_noise(painter,'A4')
