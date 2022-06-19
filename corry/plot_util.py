@@ -213,7 +213,8 @@ class Painter:
     return pave
   def ResetCanvas(self):
     self.canvas.Clear()
-    self.canvas.Divide(self.subPadNX, self.subPadNY)
+    if(self.subPadNX * self.subPadNY > 1):
+      self.canvas.Divide(self.subPadNX, self.subPadNY)
     self.padEmpty = True
   def SetLayout(self, nx, ny):
     self.subPadNX = nx

@@ -150,7 +150,7 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   hNoiseMap = noiseFile.Get('hnoisepl1')
   hNoiseMapENC = painter.new_obj(hNoiseMap.Clone(f'hNoiseMapENC_{variant}'))
   hNoiseMapENC.UseCurrentStyle()
-  lgd = painter.new_obj(ROOT.TLegend(0.75, 0.55, 0.90, 0.7))
+  lgd = painter.new_obj(ROOT.TLegend(0.35, 0.55, 0.5, 0.7))
   histMax = 0
   for sub in database['submatrix']:
     vars = chip_vars[sub]
@@ -185,9 +185,17 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   # Noise Map - ENC
   hNoiseMapENC.UseCurrentStyle()
   hNoiseMapENC.SetTitle('Noise map ENC;Column (pixel);Row (pixel);ENC (e^{-})')
-  painter.DrawHist(hNoiseMapENC, option='colz')
+  # New pad (overlap)
+  padOverlap = painter.new_obj(ROOT.TPad(f'padOverlap_{variant}','',0.5,0.3, 0.93,0.7))
+  padOverlap.SetFillStyle(4000) # will be transparent
+  painter.canvas.cd()
+  padOverlap.Draw()
+  padOverlap.cd()
+  hNoiseMapENC.Draw('colz')
+  #painter.DrawHist(hNoiseMapENC, option='colz')
   ROOT.gPad.SetRightMargin(0.12)
   palette = painter.set_hist_palette(hNoiseMapENC)
+  padOverlap.Update()
   painter.NextPage()
 
 def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=False):
