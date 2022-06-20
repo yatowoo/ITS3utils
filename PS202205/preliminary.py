@@ -154,7 +154,7 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   histMax = 0
   for sub in database['submatrix']:
     vars = chip_vars[sub]
-    hsub = painter.new_hist(f'hnoise_{chip}_{sub}','Noise Distribution;Equivalent Noise Charge (e^{-});# Pixels',
+    hsub = painter.new_hist(f'hnoise_{chip}_{sub}','Noise distribution;Equivalent noise charge (e^{-});# Pixels',
       chip_vars['binning_noiseENC'])
     hsub.SetLineColor(color_vars[sub])
     hsub.SetLineWidth(2)
@@ -195,6 +195,7 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   #painter.DrawHist(hNoiseMapENC, option='colz')
   ROOT.gPad.SetRightMargin(0.12)
   palette = painter.set_hist_palette(hNoiseMapENC)
+  hNoiseMapENC.GetZaxis().SetRangeUser(0., 100.)
   padOverlap.Update()
   painter.NextPage(f'NoiseDistribution_{variant}')
 
@@ -206,14 +207,14 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
     histNameSource = 'seedChargeAssociated'
     histNameCharge = 'hSeedChargeENC'
     histNameRaw = 'hSeedCharge'
-    histXTitle = 'Seed Charge'
+    histXTitle = 'Seed charge'
     binningCharge = 'binning_seedChargeENC'
   else:
     painter.pageName = 'ClusterCharge' + ('Norm' if optNorm else '')
     histNameSource = 'clusterChargeAssociated'
     histNameCharge = 'hClusterChargeENC'
     histNameRaw = 'hClusterCharge'
-    histXTitle = 'Cluster Charge'
+    histXTitle = 'Cluster charge'
     binningCharge = 'binning_chargeENC'
   if optNorm:
     ROOT.gPad.SetTopMargin(0.05)
@@ -304,8 +305,7 @@ def plot_cluster_shape(painter : plot_util.Painter):
   """
   sub = 'SF'
   for chip in database['variant']:
-    painter.NextPad()
-    lgd = painter.new_legend(0.65, 0.35, 0.95, 0.40)
+    lgd = painter.new_legend(0.55, 0.35, 0.80, 0.40)
     painter.pageName = f'ClusterShape - {chip}_{sub}'
     chip_vars = database[chip]
     chip_setup = chip_vars['setup']
@@ -317,8 +317,8 @@ def plot_cluster_shape(painter : plot_util.Painter):
     dirCluster = dirAna.Get('cluster')
     hRatio = painter.new_obj(dirCluster.Get("clusterChargeRatio").Clone(f'hClusterChargeRatio_{chip}_{sub}'))
     hRatio.UseCurrentStyle()
-    hRatio.SetYTitle('#it{R}_{n} (#sum #it{q}_{n} charge ratio)')
-    hRatio.SetXTitle('Number of pixels in cluster')
+    hRatio.SetYTitle('#it{R}_{n} (accumulated charge ratio)')
+    hRatio.SetXTitle('Number of selected pixels by decreasing charge')
     hRatio.RebinY(int(0.02 // hRatio.GetYaxis().GetBinWidth(1) ))
     hRatio.GetXaxis().SetRangeUser(0,10)
     hRatio.GetYaxis().SetRangeUser(0,1.2)
@@ -329,20 +329,33 @@ def plot_cluster_shape(painter : plot_util.Painter):
     hPx.SetMarkerColor(ROOT.kBlack)
     hPx.SetMarkerStyle(plot_util.kFullStar)
     hPx.SetMarkerSize(4)
-    painter.DrawHist(hRatio, option='colz', optNormY=True)
+    painter.normalise_profile_y(hRatio)
+    painter.NextPad()
+    hRatio.Draw('colz')
+    #painter.DrawHist(hRatio, option='colz', optNormY=True)
+    # Palette
+    ROOT.gPad.SetRightMargin(0.15)
+    #painter.set_hist_palette(hRatio)
+    hRatio.SetZTitle('Entries (normalised)')
     hPx.Draw('same')
+    # Legend
     lgd.AddEntry(hPx, '<#it{R}_{n}> (average)')
     lgd.Draw('same')
     # Label
     plot_alice(painter, pos='rb')
+    # Line at Y/Rn=1
+    painter.canvas.Update()
+    line = painter.new_obj(ROOT.TLine(ROOT.gPad.GetUxmin(), 1., ROOT.gPad.GetUxmax(), 1.0))
+    line.SetLineWidth(3)
+    line.Draw('same')
     # Text info
-    ptxt = painter.draw_text(0.65, 0.45, 0.95, 0.65)
+    ptxt = painter.draw_text(0.52, 0.45, 0.95, 0.65)
     painter.add_text(ptxt, f'Chip : CE65 (MLR1)')
     painter.add_text(ptxt, f'Process : {chip_vars["process"]} (split {chip_vars["split"]})')
+    painter.add_text(ptxt,f'Sub-matrix : {sub}')
     painter.add_text(ptxt,
       f'V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
       size=0.03)
-    painter.add_text(ptxt,f'Sub-matrix : {sub}')
     ptxt.Draw('same')
     painter.NextPage(f'ClusterChargeRatioRn_{chip}')
   # Draw

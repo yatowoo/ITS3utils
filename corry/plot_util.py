@@ -220,6 +220,9 @@ class Painter:
     if(self.subPadNX * self.subPadNY > 1):
       self.canvas.Divide(self.subPadNX, self.subPadNY)
     self.padEmpty = True
+    # Style
+    ROOT.gPad.SetMargin(self.marginLeft, self.marginRight, self.marginBottom, self.marginTop)
+    ROOT.gPad.SetGrid(self.showGrid, self.showGrid)
   def SetLayout(self, nx, ny):
     self.subPadNX = nx
     self.subPadNY = ny
@@ -328,7 +331,7 @@ class Painter:
       if norm < 1: continue
       for iy in range(1,hist.GetNbinsY()+1):
         raw = hist.GetBinContent(ix, iy)
-        hist.SetBinContent(ix, iy, 100 * raw / norm)
+        hist.SetBinContent(ix, iy, 1. * raw / norm)
       hpfx.Delete()
     return None
   def estimate_fwhm(self, hist):
@@ -462,14 +465,15 @@ class Painter:
     print("[+] DEBUG - Pad " + str(self.padIndex) + ' : ' + htmp.GetName())
     if kwargs.get('optNormY') == True:
       self.normalise_profile_y(htmp)
+    htmp.Draw(option)
+    self.padEmpty = False
+    # Style
     if(option == "colz"):
       zmax = htmp.GetBinContent(htmp.GetMaximumBin())
       htmp.GetZaxis().SetRangeUser(0.0 * zmax, 1.1 * zmax)
     if(htmp.ClassName().startswith('TH') and self.subPadNX * self.subPadNY >= 4):
       htmp.SetTitleSize(0.08, "XY")
       htmp.SetTitleOffset(0.8, "XY")
-    htmp.Draw(option)
-    self.padEmpty = False
     if(optGaus): self.optimise_hist_gaus(htmp, scale)
     if(kwargs.get('optLangau') == True):
       self.optimise_hist_langau(htmp, scale)
