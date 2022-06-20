@@ -166,9 +166,13 @@ class Painter:
     self.canvas = canvas if canvas is not None else NewCanvas(**kwargs)
        # Output PDF in 1 file
     self.printer = printer if printer.endswith(".pdf") else printer +".pdf"
+    self.printAll = SetArg(kwargs, 'printAll', False)
+    self.printDir = SetArg(kwargs, 'printDir', os.path.dirname(self.printer))
+    if(self.printDir == ''): self.printDir = '.'
+    self.printExt = SetArg(kwargs, 'printExt', ['pdf','png'])
     # Configuration
-    self.subPadNX = kwargs['nx'] if kwargs.get('nx') else 1
-    self.subPadNY = kwargs['ny'] if kwargs.get('ny') else 1
+    self.subPadNX = SetArg(kwargs, 'nx', 1)
+    self.subPadNY = SetArg(kwargs, 'ny', 1)
     0.14, 0.02, 0.12, 0.02
     self.marginTop = SetArg(kwargs, 'marginTop', 0.02)
     self.marginBottom = SetArg(kwargs, 'marginBottom', 0.12)
@@ -244,17 +248,28 @@ class Painter:
   def PrintBackCover(self, title=''):
     self.PrintCover(title, isBack=True)
   def NextPage(self, title=""):
-    self.padIndex = 0
+    # Print
+    if self.printAll and not self.padEmpty:
+      figureName = title
+      if title == '':
+        figureName = f'{self.primaryHist.GetName()}_{len(self.root_objs)}'
+      figurePath = f'{self.printDir}/{figureName}'
+      for ext in self.printExt:
+        self.canvas.SaveAs(figurePath + '.' + ext)
     if(title == ""):
       title = self.pageName
     self.canvas.Print(self.printer, f"Title:{title}")
+    # New page
+    self.padIndex = 0
     self.ResetCanvas()
   def NextPad(self, title=""):
+    # Full sub-pads
     if(self.padIndex == self.subPadNX * self.subPadNY):
       self.NextPage()
     self.padIndex = self.padIndex + 1
     self.canvas.cd(self.padIndex)
     self.padEmpty = True
+    self.primaryHist = None
     # Style
     ROOT.gPad.SetMargin(self.marginLeft, self.marginRight, self.marginBottom, self.marginTop)
     ROOT.gPad.SetGrid(self.showGrid, self.showGrid)

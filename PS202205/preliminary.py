@@ -196,20 +196,20 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   ROOT.gPad.SetRightMargin(0.12)
   palette = painter.set_hist_palette(hNoiseMapENC)
   padOverlap.Update()
-  painter.NextPage()
+  painter.NextPage(f'NoiseDistribution_{variant}')
 
 def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=False):
   """Cluster charge plot for all variants and sub-matrix
   """
   if(optSeed):
-    painter.pageName = 'Seed Charge'
+    painter.pageName = 'SeedCharge' + ('Norm' if optNorm else '')
     histNameSource = 'seedChargeAssociated'
     histNameCharge = 'hSeedChargeENC'
     histNameRaw = 'hSeedCharge'
     histXTitle = 'Seed Charge'
     binningCharge = 'binning_seedChargeENC'
   else:
-    painter.pageName = 'Cluster Charge'
+    painter.pageName = 'ClusterCharge' + ('Norm' if optNorm else '')
     histNameSource = 'clusterChargeAssociated'
     histNameCharge = 'hClusterChargeENC'
     histNameRaw = 'hClusterCharge'
@@ -294,7 +294,7 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
     f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
     size=0.03)
   ptxt.Draw('same')
-  painter.NextPage()
+  painter.NextPage(f'{painter.pageName}_' + '_'.join(database['variant']))
 
 def plot_seed_charge(painter : plot_util.Painter, optNorm=False):
   return plot_cluster_charge(painter, optSeed=True, optNorm=optNorm)
@@ -304,6 +304,7 @@ def plot_cluster_shape(painter : plot_util.Painter):
   """
   sub = 'SF'
   for chip in database['variant']:
+    painter.NextPad()
     lgd = painter.new_legend(0.65, 0.35, 0.95, 0.40)
     painter.pageName = f'ClusterShape - {chip}_{sub}'
     chip_vars = database[chip]
@@ -343,7 +344,7 @@ def plot_cluster_shape(painter : plot_util.Painter):
       size=0.03)
     painter.add_text(ptxt,f'Sub-matrix : {sub}')
     ptxt.Draw('same')
-    painter.NextPage()
+    painter.NextPage(f'ClusterChargeRatioRn_{chip}')
   # Draw
 def plot_tracking_residual(painter : plot_util.Painter, axis='X'):
   """
@@ -409,14 +410,14 @@ def plot_tracking_residual(painter : plot_util.Painter, axis='X'):
     f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
     size=0.03)
   ptxt.Draw('same')
-  painter.NextPage()
+  painter.NextPage(f'TrackingResiduals{axis}_' + '_'.join(database['variant']))
 
 def plot_preliminary():
   plot_util.ALICEStyle()
   painter = plot_util.Painter(
     printer='preliminary.pdf',
     winX=1600, winY=1000, nx=1, ny=1,
-    showGrid=True)
+    showGrid=True, printAll=True, printDir='plot')
   painter.PrintCover('CE65 Preliminary')
   plot_noise(painter,'B4')
   plot_noise(painter,'A4')
