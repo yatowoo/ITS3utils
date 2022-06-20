@@ -131,12 +131,28 @@ def plot_alice(painter : plot_util.Painter, x1 = 0.02, y1 = 0.03, x2 = 0.47, y2 
  size=0.04, pos='lt'):
   """
   """
+  if pos == 'rb' or pos == 'rt':
+    align=32
+  else:
+    align=11
   label = painter.new_obj(plot_util.InitALICELabel(x1, y1, x2, y2, 
-    align=12, type='#bf{ALICE ITS3-WP3} beam test #it{preliminiary}', pos=pos))
-  painter.add_text(label, '@CERN-PS May 2022, 10 GeV/#it{c} #pi^{-}', size=0.03)
-  painter.add_text(label, datetime.datetime.now().strftime("Plotted on %d %b %Y"), size=0.03)
+    align=12, type='#bf{ALICE ITS3-WP3} beam test #it{preliminiary}', size=size, pos=pos))
+  painter.add_text(label, '@CERN-PS May 2022, 10 GeV/#it{c} #pi^{-}', size=size*0.75, align=align)
+  painter.add_text(label, datetime.datetime.now().strftime("Plotted on %d %b %Y"), size=size*0.75, align=align)
   label.Draw('same')
   return label
+
+def draw_configuration(painter : plot_util.Painter, pave, sub='all', size=0.02):
+  """
+  """
+  painter.add_text(pave, 'V_{sub} = V_{pwell} = 0 V', size=size)
+  painter.add_text(pave, 'I_{bias_mat} = 5 mA, I_{bias_col} = 100 #muA, V_{offset} = 0.4 V', size=size)
+  if(sub == 'all'):
+    painter.add_text(pave, 'AC amp.: HV = 10 V, I_{bias_pmos} = 1 #muA', size=size)
+    painter.add_text(pave, 'DC amp.: I_{bias_pmos} = 1 #muA', size=size)
+    painter.add_text(pave, 'SF : I_{bias_nmos} = 1 #muA, V_{reset} = 3.3 V', size=size)
+  elif(sub == 'SF'):
+    painter.add_text(pave, 'I_{bias_nmos} = 1 #muA, V_{reset} = 3.3 V', size=size)
 
 # Noise
 def plot_noise(painter : plot_util.Painter, variant='B4'):
@@ -175,18 +191,19 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   lgd.Draw('same')
   # Text
   plot_alice(painter)
-  ptxt = painter.draw_text(0.65, 0.75, 0.95, 0.92)
+  ptxt = painter.draw_text(0.65, 0.65, 0.95, 0.92)
   painter.add_text(ptxt, f'Chip : CE65 (MLR1)')
   painter.add_text(ptxt, f'Process : {chip_vars["process"]} (split {chip_vars["split"]})')
-  painter.add_text(ptxt,
-    f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
-    size=0.03)
+  draw_configuration(painter, ptxt)
+  #painter.add_text(ptxt,
+    #f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
+    #size=0.03)
   ptxt.Draw('same')
   # Noise Map - ENC
   hNoiseMapENC.UseCurrentStyle()
   hNoiseMapENC.SetTitle('Noise map ENC;Column (pixel);Row (pixel);ENC (e^{-})')
   # New pad (overlap)
-  padOverlap = painter.new_obj(ROOT.TPad(f'padOverlap_{variant}','',0.5,0.3, 0.93,0.7))
+  padOverlap = painter.new_obj(ROOT.TPad(f'padOverlap_{variant}','',0.5,0.2, 0.93,0.6))
   padOverlap.SetFillStyle(4000) # will be transparent
   painter.canvas.cd()
   padOverlap.Draw()
@@ -220,7 +237,7 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
     ROOT.gPad.SetTopMargin(0.05)
   histMax = 0
   snrMin = 10
-  lgd = painter.new_obj(ROOT.TLegend(0.62, 0.2, 0.93, 0.5))
+  lgd = painter.new_obj(ROOT.TLegend(0.62, 0.2, 0.93, 0.45))
   for chip in database['variant']:
     chip_vars = database[chip]
     for sub in database['submatrix']:
@@ -278,22 +295,21 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
   if(painter.showGrid): # FIXME: failed to show by painter itself
     ROOT.gPad.SetGrid(1,1)
   # Clustering
-  pTxtClustering = painter.draw_text(0.62, 0.60, 0.90, 0.70)
-  painter.add_text(pTxtClustering, f'Cluster window: 3#times3')
-  painter.add_text(pTxtClustering, f'Seed charge > 100 e^{{-}}, SNR > {snrMin}')
+  pTxtClustering = painter.draw_text(0.62, 0.53, 0.93, 0.61)
+  painter.add_text(pTxtClustering, f'Cluster window: 3#times3', size=0.03)
+  painter.add_text(pTxtClustering, f'Seed charge > 100 e^{{-}}, SNR > {snrMin}', size=0.03)
   pTxtClustering.Draw('same')
   # Legend
-  painter.draw_text(0.62, 0.5, 0.90, 0.55, 'Fitting by Landau-Gaussian function', size=0.03, font=42).Draw('same')
+  painter.draw_text(0.62, 0.45, 0.90, 0.48, 'Fitting by Landau-Gaussian function', size=0.03, font=42).Draw('same')
   lgd.SetTextSize(0.035)
   lgd.Draw('same')
   plot_alice(painter)
-  ptxt = painter.draw_text(0.62, 0.75, 0.95, 0.92)
+  ptxt = painter.draw_text(0.62, 0.65, 0.95, 0.92)
   painter.add_text(ptxt, f'Chip : CE65 (MLR1)')
   painter.add_text(ptxt, f'Process : std/mod_gap (split {chip_vars["split"]})')
   chip_setup = chip_vars['setup']
-  painter.add_text(ptxt,
-    f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
-    size=0.03)
+  draw_configuration(painter, ptxt)
+
   ptxt.Draw('same')
   painter.NextPage(f'{painter.pageName}_' + '_'.join(database['variant']))
 
@@ -305,7 +321,7 @@ def plot_cluster_shape(painter : plot_util.Painter):
   """
   sub = 'SF'
   for chip in database['variant']:
-    lgd = painter.new_legend(0.55, 0.35, 0.80, 0.40)
+    lgd = painter.new_legend(0.55, 0.60, 0.80, 0.65)
     painter.pageName = f'ClusterShape - {chip}_{sub}'
     chip_vars = database[chip]
     chip_setup = chip_vars['setup']
@@ -341,21 +357,20 @@ def plot_cluster_shape(painter : plot_util.Painter):
     # Legend
     lgd.AddEntry(hPx, '<#it{R}_{n}> (average)')
     lgd.Draw('same')
+    painter.draw_text(0.55, 0.53, 0.80, 0.58, 'Cluster window : 3#times3',size=0.03, font=42).Draw('same')
     # Label
-    plot_alice(painter, pos='rb')
+    plot_alice(painter, 0.02, 0.03, 0.35, 0.15, size=0.03, pos='rb')
     # Line at Y/Rn=1
     painter.canvas.Update()
     line = painter.new_obj(ROOT.TLine(ROOT.gPad.GetUxmin(), 1., ROOT.gPad.GetUxmax(), 1.0))
     line.SetLineWidth(3)
     line.Draw('same')
     # Text info
-    ptxt = painter.draw_text(0.52, 0.45, 0.95, 0.65)
-    painter.add_text(ptxt, f'Chip : CE65 (MLR1)')
-    painter.add_text(ptxt, f'Process : {chip_vars["process"]} (split {chip_vars["split"]})')
-    painter.add_text(ptxt,f'Sub-matrix : {sub}')
-    painter.add_text(ptxt,
-      f'V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
-      size=0.03)
+    ptxt = painter.draw_text(0.62, 0.29, 0.85, 0.50)
+    painter.add_text(ptxt, f'Chip : CE65 (MLR1)', size=0.03)
+    painter.add_text(ptxt, f'Process : {chip_vars["process"]} (split {chip_vars["split"]})', size=0.03)
+    painter.add_text(ptxt,f'Sub-matrix : {sub}', size=0.03)
+    draw_configuration(painter, ptxt, sub='SF', size=0.015)
     ptxt.Draw('same')
     painter.NextPage(f'ClusterChargeRatioRn_{chip}')
   # Draw
@@ -371,7 +386,7 @@ def plot_tracking_residual(painter : plot_util.Painter, axis='X'):
     histXTitle = '#it{y}_{track} - #it{y}_{cluster} (#mum)'
   else:
     print(f'[X] Error - UNKNOWN {axis = }')
-  lgd = painter.new_obj(ROOT.TLegend(0.57, 0.3, 0.90, 0.6))
+  lgd = painter.new_obj(ROOT.TLegend(0.57, 0.28, 0.90, 0.58))
   for chip in database['variant']:
     chip_vars = database[chip]
     for sub in database['submatrix']:
@@ -408,20 +423,18 @@ def plot_tracking_residual(painter : plot_util.Painter, axis='X'):
         f' (#sigma = {fit.GetParameter(2):.1f} #mum)')
       # End - sub
     # End - chip
-  painter.primaryHist.GetXaxis().SetRangeUser(-30., 50)
+  painter.primaryHist.GetXaxis().SetRangeUser(-30., 60)
   painter.primaryHist.GetYaxis().SetRangeUser(0, HIST_Y_SCALE * histMax)
   # Text
-  painter.draw_text(0.57, 0.6, 0.90, 0.65, 'Fitting by Gaussian function', size=0.03, font=42).Draw('same')
+  painter.draw_text(0.57, 0.59, 0.90, 0.62, 'Fitting by Gaussian function', size=0.03, font=42).Draw('same')
   lgd.SetTextSize(0.035)
   lgd.Draw('same')
   plot_alice(painter)
-  ptxt = painter.draw_text(0.62, 0.75, 0.95, 0.92)
+  ptxt = painter.draw_text(0.62, 0.65, 0.95, 0.93)
   painter.add_text(ptxt, f'Chip : CE65 (MLR1)')
   painter.add_text(ptxt, f'Process : std/mod_gap (split {chip_vars["split"]})')
   chip_setup = chip_vars['setup']
-  painter.add_text(ptxt,
-    f'HV-AC = {chip_setup["HV"]}, V_{{psub}} = {chip_setup["PSUB"]}, V_{{pwell}} = {chip_setup["PWELL"]} (V)',
-    size=0.03)
+  draw_configuration(painter, ptxt)
   ptxt.Draw('same')
   painter.NextPage(f'TrackingResiduals{axis}_' + '_'.join(database['variant']))
 

@@ -179,6 +179,8 @@ class Painter:
     self.marginLeft = SetArg(kwargs, 'marginLeft', 0.14)
     self.marginRight = SetArg(kwargs, 'marginRight', 0.02)
     self.showGrid = SetArg(kwargs, 'showGrid', False)
+    self.gridColor = SetArg(kwargs, 'gridColor', kGray+1)
+    ROOT.gStyle.SetGridColor(self.gridColor)
     # Parameters
     self.GAUS_FIT_RANGE = kwargs['gausFitRange'] if kwargs.get('gausFitRange') else 1 # ratio of FWHM
     # Status
