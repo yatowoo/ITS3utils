@@ -281,6 +281,27 @@ class Painter:
   def NextRow(self):
     while(self.padIndex % self.subPadNX != 0):
       self.NextPad()
+  # Painter Objects
+  def draw_band(self, xmin, xmax, color = kGray+1, style=3002, **kwargs):
+    """
+    """
+    grshade = self.new_obj(ROOT.TGraph(4))
+    ROOT.gPad.Update()
+    ymin = SetArg(kwargs, 'ymin', ROOT.gPad.GetUymin())
+    ymax = SetArg(kwargs, 'ymax', ROOT.gPad.GetUymax())
+    grshade.SetPoint(0, xmin, ymax)
+    grshade.SetPoint(2, xmax, ymin)
+    grshade.SetPoint(1, xmax, ymax)
+    grshade.SetPoint(3, xmin, ymin)
+    grshade.SetFillColor(color)
+    grshade.SetFillStyle(style)
+    grshade.SetLineColor(0)
+    grshade.SetLineWidth(0)
+    grshade.SetMarkerColor(0)
+    grshade.SetMarkerSize(0)
+    grshade.SetDrawOption('F')
+    grshade.Draw('same F')
+    return grshade
   # Drawing - Histograms
   def set_hist_palette(self, hist : ROOT.TH2, width=0.05):
     palette = hist.GetListOfFunctions().FindObject("palette")

@@ -244,6 +244,7 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
   histMax = 0
   snrMin = 10
   lgd = painter.new_obj(ROOT.TLegend(0.62, 0.2, 0.93, 0.45))
+  qcdb = {'MPV':[]}
   for chip in database['variant']:
     chip_vars = database[chip]
     for sub in database['submatrix']:
@@ -295,12 +296,9 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
         # Line at MPV
       mpshift = -0.22278298
       mpv = fit.GetParameter(1) - mpshift * fit.GetParameter(0)
-      mpvH = fit.Eval(mpv)
+      database[chip][sub]['result'][histNameRaw + '_MPV'] = mpv
+      qcdb['MPV'].append(mpv)
       ROOT.gPad.Update()
-      lineMPV = painter.new_obj(ROOT.TLine(mpv, ROOT.gPad.GetUymin(), mpv, mpvH))
-      lineMPV.SetLineColor(color_vars[sub] - 5 if color_vars[sub] > 5 else plot_util.kGray+color_vars[sub])
-      lineMPV.SetLineStyle(line_vars[chip])
-      lineMPV.Draw('same')
       result.Print() # DEBUG
         # Legend
       lgd.AddEntry(hCharge, f'{chip_vars["process"]} {sub_vars["title"]}')
@@ -324,12 +322,31 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
   painter.add_text(ptxt, f'Process : std/mod_gap (split {chip_vars["split"]})')
   chip_setup = chip_vars['setup']
   draw_configuration(painter, ptxt)
-
   ptxt.Draw('same')
+  if optSeed:
+    return qcdb
   painter.NextPage(f'{painter.pageName}_' + '_'.join(database['variant']))
 
 def plot_seed_charge(painter : plot_util.Painter, optNorm=False):
-  return plot_cluster_charge(painter, optSeed=True, optNorm=optNorm)
+  qcdb = plot_cluster_charge(painter, optSeed=True, optNorm=optNorm)
+  mpvCluster = []
+  # Cluster charge MPV
+  for chip in database['variant']:
+    chip_vars = database[chip]
+    for sub in database['submatrix']:
+      sub_vars = chip_vars[sub]
+      mpvCluster.append(sub_vars['result']['hClusterCharge_MPV'])
+  # Band of cluster charge MPV
+  xmin = min(mpvCluster)
+  xmax = max(mpvCluster)
+  band = painter.draw_band(xmin, xmax)
+  lgd = painter.new_obj(ROOT.TLegend(0.35, 0.65, 0.55, 0.70))
+  lgd.AddEntry(band, 'MPV of cluster charge')
+  lgd.Draw('same')
+  #
+  painter.pageName = 'SeedCharge' + ('Norm' if optNorm else '')
+  painter.NextPage(f'{painter.pageName}_' + '_'.join(database['variant']))
+  return qcdb
 
 def plot_cluster_shape(painter : plot_util.Painter):
   """Cluster distribution in a window around seed
