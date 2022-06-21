@@ -2,6 +2,7 @@
 
 # Plot preliminary results for approval
 
+import enum
 import plot_util
 import ROOT
 from copy import deepcopy
@@ -117,8 +118,9 @@ for chip in database['variant']:
 # Style
 HIST_Y_SCALE = 1.4
 color_vars = {}
+color_fill = {}
 plot_util.COLOR_SET = plot_util.COLOR_SET_ALICE
-for sub in database['submatrix']:
+for i, sub in enumerate(database['submatrix']):
   color_vars[sub] = next(plot_util.COLOR)
 marker_vars = {}
 line_vars = {}
@@ -290,6 +292,15 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
         # Fitting
       fit, result = painter.optimise_hist_langau(hCharge,
         color=color_vars[sub], style=line_vars[chip], notext=True)
+        # Line at MPV
+      mpshift = -0.22278298
+      mpv = fit.GetParameter(1) - mpshift * fit.GetParameter(0)
+      mpvH = fit.Eval(mpv)
+      ROOT.gPad.Update()
+      lineMPV = painter.new_obj(ROOT.TLine(mpv, ROOT.gPad.GetUymin(), mpv, mpvH))
+      lineMPV.SetLineColor(color_vars[sub] - 5 if color_vars[sub] > 5 else plot_util.kGray+color_vars[sub])
+      lineMPV.SetLineStyle(line_vars[chip])
+      lineMPV.Draw('same')
       result.Print() # DEBUG
         # Legend
       lgd.AddEntry(hCharge, f'{chip_vars["process"]} {sub_vars["title"]}')
