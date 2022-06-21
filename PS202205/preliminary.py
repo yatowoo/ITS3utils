@@ -128,16 +128,20 @@ for chips in database['variant']:
   line_vars[chips] = next(plot_util.LINE)
 
 def plot_alice(painter : plot_util.Painter, x1 = 0.02, y1 = 0.03, x2 = 0.47, y2 = 0.17,
- size=0.04, pos='lt'):
+ size=0.04, pos='lt', test='beam'):
   """
   """
   if pos == 'rb' or pos == 'rt':
     align=32
   else:
     align=11
-  label = painter.new_obj(plot_util.InitALICELabel(x1, y1, x2, y2, 
-    align=12, type='#bf{ALICE ITS3-WP3} beam test #it{preliminiary}', size=size, pos=pos))
-  painter.add_text(label, '@CERN-PS May 2022, 10 GeV/#it{c} #pi^{-}', size=size*0.75, align=align)
+  if test == 'beam':
+    label = painter.new_obj(plot_util.InitALICELabel(x1, y1, x2, y2, 
+      align=12, type='#bf{ALICE ITS3-WP3} beam test #it{preliminary}', size=size, pos=pos))
+    painter.add_text(label, '@CERN-PS May 2022, 10 GeV/#it{c} #pi^{-}', size=size*0.75, align=align)
+  else:
+    label = painter.new_obj(plot_util.InitALICELabel(x1, y1, x2, y2, 
+      align=12, type='#bf{ALICE ITS3-WP3} #it{preliminary}', size=size, pos=pos))
   painter.add_text(label, datetime.datetime.now().strftime("Plotted on %d %b %Y"), size=size*0.75, align=align)
   label.Draw('same')
   return label
@@ -146,13 +150,13 @@ def draw_configuration(painter : plot_util.Painter, pave, sub='all', size=0.02):
   """
   """
   painter.add_text(pave, 'V_{sub} = V_{pwell} = 0 V', size=size)
-  painter.add_text(pave, 'I_{bias_mat} = 5 mA, I_{bias_col} = 100 #muA, V_{offset} = 0.4 V', size=size)
+  painter.add_text(pave, 'I_{mat} = 5 mA, I_{col} = 100 #muA, V_{offset} = 0.4 V', size=size)
   if(sub == 'all'):
-    painter.add_text(pave, 'AC amp.: HV = 10 V, I_{bias_pmos} = 1 #muA', size=size)
-    painter.add_text(pave, 'DC amp.: I_{bias_pmos} = 1 #muA', size=size)
-    painter.add_text(pave, 'SF : I_{bias_nmos} = 1 #muA, V_{reset} = 3.3 V', size=size)
+    painter.add_text(pave, 'AC amp.: HV = 10 V, I_{pmos} = 1 #muA', size=size)
+    painter.add_text(pave, 'DC amp.: I_{pmos} = 1 #muA', size=size)
+    painter.add_text(pave, 'SF : I_{nmos} = 1 #muA, V_{reset} = 3.3 V', size=size)
   elif(sub == 'SF'):
-    painter.add_text(pave, 'I_{bias_nmos} = 1 #muA, V_{reset} = 3.3 V', size=size)
+    painter.add_text(pave, 'I_{nmos} = 1 #muA, V_{reset} = 3.3 V', size=size)
 
 # Noise
 def plot_noise(painter : plot_util.Painter, variant='B4'):
@@ -190,7 +194,7 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   # Legend
   lgd.Draw('same')
   # Text
-  plot_alice(painter)
+  plot_alice(painter,test='lab')
   ptxt = painter.draw_text(0.65, 0.65, 0.95, 0.92)
   painter.add_text(ptxt, f'Chip : CE65 (MLR1)')
   painter.add_text(ptxt, f'Process : {chip_vars["process"]} (split {chip_vars["split"]})')
@@ -321,7 +325,7 @@ def plot_cluster_shape(painter : plot_util.Painter):
   """
   sub = 'SF'
   for chip in database['variant']:
-    lgd = painter.new_legend(0.55, 0.60, 0.80, 0.65)
+    lgd = painter.new_legend(0.62, 0.60, 0.82, 0.65)
     painter.pageName = f'ClusterShape - {chip}_{sub}'
     chip_vars = database[chip]
     chip_setup = chip_vars['setup']
@@ -355,9 +359,9 @@ def plot_cluster_shape(painter : plot_util.Painter):
     hRatio.SetZTitle('Entries (normalised)')
     hPx.Draw('same')
     # Legend
-    lgd.AddEntry(hPx, '<#it{R}_{n}> (average)')
+    lgd.AddEntry(hPx, '<#it{R}_{n}>')
     lgd.Draw('same')
-    painter.draw_text(0.55, 0.53, 0.80, 0.58, 'Cluster window : 3#times3',size=0.03, font=42).Draw('same')
+    painter.draw_text(0.62, 0.53, 0.82, 0.58, 'Cluster window : 3#times3',size=0.03, font=42).Draw('same')
     # Label
     plot_alice(painter, 0.02, 0.03, 0.35, 0.15, size=0.03, pos='rb')
     # Line at Y/Rn=1
