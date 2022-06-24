@@ -230,10 +230,12 @@ class Painter:
     self.showGrid = kwargs.get('showGrid', False)
     self.gridColor = kwargs.get('gridColor', kGray+1)
     ROOT.gStyle.SetGridColor(self.gridColor)
+    self.showPageNo = kwargs.get('showPageNo', False)
     # Parameters
     self.GAUS_FIT_RANGE = kwargs['gausFitRange'] if kwargs.get('gausFitRange') else 1 # ratio of FWHM
     # Status
     self.padIndex = 0
+    self.pageNo = 0
     self.pageName = "Start"
     self.padEmpty = True
     self.hasCover = False
@@ -250,21 +252,29 @@ class Painter:
   def new_legend(self, xlow, ylow, xup, yup):
     lgd = self.new_obj(ROOT.TLegend(xlow, ylow, xup, yup))
     return lgd
-  def add_text(self, pave : ROOT.TPaveText, s : str, color=None, size=0.04, align=11, font=42):
+  def add_text(self, pave : ROOT.TPaveText, s : str, **textAttr):
     text = pave.AddText(s)
-    text.SetTextAlign(align)
-    text.SetTextSize(size)
-    text.SetTextFont(font)
-    if(color):
-      text.SetTextColor(color)
+    textAttr['color'] = textAttr.get('color', kBlack)
+    textAttr['size'] = textAttr.get('size', 0.04)
+    textAttr['font'] = textAttr.get('font', 42)
+    textAttr['align'] = textAttr.get('align', 11)
+    text.SetTextAlign(textAttr['align'])
+    text.SetTextSize(textAttr['size'])
+    text.SetTextFont(textAttr['font'])
+    text.SetTextColor(textAttr['color'])
     return text
-  def draw_text(self, xlow=0.25, ylow=0.4, xup=0.75, yup=0.6, title = '', size=0.05, font=62):
+  def draw_text(self, xlow=0.25, ylow=0.4, xup=0.75, yup=0.6, title = '', **textAttr):
     pave = self.new_obj(ROOT.TPaveText(xlow, ylow, xup, yup, "brNDC"))
     pave.SetBorderSize(0)
     pave.SetFillStyle(0) # hollow
     pave.SetFillColor(ROOT.kWhite)
     if(title != ''):
-      self.add_text(pave, title, size=size, font=font)
+      # Text Attributes
+      textAttr['color'] = textAttr.get('color', kBlack)
+      textAttr['size'] = textAttr.get('size', 0.05)
+      textAttr['font'] = textAttr.get('font', 62)
+      textAttr['align'] = textAttr.get('align', 11)
+      self.add_text(pave, title, **textAttr)
     return pave
   def ResetCanvas(self):
     self.canvas.Clear()
@@ -280,6 +290,10 @@ class Painter:
     self.ResetCanvas()
   def GetLayout(self):
     return (self.subPadNX, self.subPadNY)
+  def draw_pageno(self):
+    # Left-Bottom corner
+    self.draw_text(0.01,0.01,0.05,0.05,f'{self.pageNo}', 
+      size=0.03, color=kGray+1, align=12).Draw()
   def PrintCover(self, title = '', isBack = False):
     self.canvas.Clear()
     pTxt = ROOT.TPaveText(0.25,0.4,0.75,0.6, "brNDC")
@@ -296,6 +310,8 @@ class Painter:
     if(isBack):
       self.canvas.Print(self.printer + ')', 'Title:End')
     else:
+      self.draw_pageno()
+      self.draw_text(0.5, 0, 1.0, 0.1, f'File : {self.printer}', align=32, color=kGray+1, size=0.03).Draw()
       self.canvas.Print(self.printer + '(', 'Title:Cover')
     pTxt.Delete()
     self.ResetCanvas()
@@ -312,6 +328,10 @@ class Painter:
         self.canvas.SaveAs(figurePath + '.' + ext)
     if(title == ""):
       title = self.pageName
+    self.pageNo += 1
+    if(self.showPageNo):
+      self.canvas.cd()
+      self.draw_pageno()
     self.canvas.Print(self.printer, f"Title:{title}")
     # New page
     self.padIndex = 0
@@ -332,7 +352,7 @@ class Painter:
       self.NextPad()
   # Painter Objects
   def draw_band(self, xmin, xmax, color = kGray+1, style=3002, **kwargs):
-    """Draw a band 
+    """Draw a rectangular band by TGraph
     Default: vertical gray band crossing the frame
     """
     grshade = self.new_obj(ROOT.TGraph(4))
@@ -399,7 +419,7 @@ class Painter:
       for ix in range(hist.GetNbinsX()):
         val = hist.GetBinContent(ix + 1, iy +1)
         pave = self.draw_text(ix * wx + xlower, iy * wy + ylower, (ix+1) * wx + xlower, (iy+1)*wx + xlower)
-        self.add_text(pave,f'{val:.3f}', textAttr)
+        self.add_text(pave,f'{val:.3f}', **textAttr)
         pave.Draw('same')
   # Calculation
   def normalise_profile_y(self, hist):

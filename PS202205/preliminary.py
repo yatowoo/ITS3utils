@@ -475,7 +475,7 @@ def plot_preliminary():
   painter = plot_util.Painter(
     printer='preliminary.pdf',
     winX=1600, winY=1000, nx=1, ny=1,
-    showGrid=True, printAll=True, printDir='plot')
+    showGrid=True, printAll=True, printDir='plot', showPageNo=True)
   painter.PrintCover('CE65 Preliminary')
   plot_noise(painter,'B4')
   plot_noise(painter,'A4')
