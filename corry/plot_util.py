@@ -15,7 +15,7 @@ from ROOT import kSolid, kDashed, kDotted, kDashDotted
 from ROOT import TCanvas, TPaveText
 from ROOT import gPad, gStyle
 
-import sys, os, time, math, json, logging
+import sys, os, datetime, math, json, logging
 from array import array
 
 # From ALICE collaboration editor guidelines
@@ -219,6 +219,9 @@ class Painter:
     self.printDir = kwargs.get('printDir', os.path.dirname(self.printer))
     if(self.printDir == ''): self.printDir = '.'
     self.printExt = kwargs.get('printExt', ['pdf','png'])
+    self.saveROOT = kwargs.get('saveROOT', False)
+    if self.saveROOT:
+      self.rootfile = ROOT.TFile(printer.replace('.pdf','.root'), 'RECREATE')
     # Configuration
     self.subPadNX = kwargs.get('nx', 1)
     self.subPadNY = kwargs.get('ny', 1)
@@ -241,11 +244,26 @@ class Painter:
     self.hasCover = False
     self.hasBackCover = False
     self.primaryHist = None
+    self.counterSavedObjs = 0
     # Dump
     self.root_objs = []         # Temp storage to avoid GC
   def __del__(self):
     if(self.hasCover and not self.hasBackCover):
       self.PrintBackCover('')
+    if self.saveROOT:
+      self.rootfile.Close()
+      print('[-] ROOT objects saved to ' + self.rootfile.GetName())
+      print(f'> save_obj & TObject.Write() calls - {self.counterSavedObjs}')
+  def save_obj(self, obj): # ROOT.TObject
+    if not self.saveROOT: return
+    self.rootfile.cd()
+    if type(obj) is list:
+      for tobj in obj:
+        tobj.Write()
+        self.counterSavedObjs += 1
+    else:
+      obj.Write()
+      self.counterSavedObjs += 1
   def new_obj(self, obj):
     self.root_objs.append(obj)
     return self.root_objs[-1]
@@ -311,7 +329,15 @@ class Painter:
       self.canvas.Print(self.printer + ')', 'Title:End')
     else:
       self.draw_pageno()
-      self.draw_text(0.5, 0, 1.0, 0.1, f'File : {self.printer}', align=32, color=kGray+1, size=0.03).Draw()
+      text_footnote = {
+        'align': 32,
+        'color': kGray+1,
+        'size': 0.03,
+      }
+      pave = self.draw_text(0.5, 0, 1.0, 0.15, f'File : {self.printer}', **text_footnote)
+      self.add_text(pave, f'Timestamp : {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', **text_footnote)
+      self.add_text(pave, f'Powered by #bf{{root_plot}}', **text_footnote)
+      pave.Draw()
       self.canvas.Print(self.printer + '(', 'Title:Cover')
     pTxt.Delete()
     self.ResetCanvas()

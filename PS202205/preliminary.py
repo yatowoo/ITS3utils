@@ -169,7 +169,7 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   chip_vars = database[variant]
   chip_setup = chip_vars['setup']
   noiseFile = ROOT.TFile.Open(chip_vars['noise'])
-  hNoiseMap = noiseFile.Get('hnoisepl1')
+  hNoiseMap = painter.new_obj(noiseFile.Get('hnoisepl1').Clone(f'hNoiseMap_{variant}'))
   hNoiseMapENC = painter.new_obj(hNoiseMap.Clone(f'hNoiseMapENC_{variant}'))
   hNoiseMapENC.UseCurrentStyle()
   lgd = painter.new_obj(ROOT.TLegend(0.35, 0.55, 0.5, 0.7))
@@ -191,6 +191,7 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
     if(hsub.GetMaximum() > histMax):
       histMax = hsub.GetMaximum()
     painter.DrawHist(hsub, samePad=True)
+    painter.save_obj(hsub)
   painter.primaryHist.GetYaxis().SetRangeUser(0, HIST_Y_SCALE * histMax)
   ROOT.gPad.SetLogy(False)
   # Legend
@@ -220,6 +221,8 @@ def plot_noise(painter : plot_util.Painter, variant='B4'):
   palette = painter.set_hist_palette(hNoiseMapENC)
   hNoiseMapENC.GetZaxis().SetRangeUser(0., 100.)
   padOverlap.Update()
+  # Output
+  painter.save_obj([hNoiseMap, hNoiseMapENC])
   painter.NextPage(f'NoiseDistribution_{variant}')
 
 def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=False):
@@ -303,6 +306,7 @@ def plot_cluster_charge(painter : plot_util.Painter, optNorm=False, optSeed=Fals
         # Legend
       lgd.AddEntry(hCharge, f'{chip_vars["process"]} {sub_vars["title"]}')
       resultFile.Close()
+      painter.save_obj([hChargeRaw, hCharge, fit])
   # Pad style
   painter.primaryHist.GetYaxis().SetRangeUser(0, HIST_Y_SCALE * histMax)
   if(painter.showGrid): # FIXME: failed to show by painter itself
@@ -404,6 +408,8 @@ def plot_cluster_shape(painter : plot_util.Painter):
     painter.add_text(ptxt,f'Sub-matrix : {sub}', size=0.03)
     draw_configuration(painter, ptxt, sub='SF', size=0.015)
     ptxt.Draw('same')
+    # Output
+    painter.save_obj(hRatio)
     painter.NextPage(f'ClusterChargeRatioRn_{chip}')
   # Draw
 def plot_tracking_residual(painter : plot_util.Painter, axis='X'):
@@ -453,6 +459,7 @@ def plot_tracking_residual(painter : plot_util.Painter, axis='X'):
       result.Print() # DEBUG
       lgd.AddEntry(hTrack, f'{chip_vars["process"]} {sub_vars["title"]}'
         f' (#sigma = {fit.GetParameter(2):.1f} #mum)')
+      painter.save_obj(hTrack)
       # End - sub
     # End - chip
   painter.primaryHist.GetXaxis().SetRangeUser(-30., 60)
@@ -475,7 +482,8 @@ def plot_preliminary():
   painter = plot_util.Painter(
     printer='preliminary.pdf',
     winX=1600, winY=1000, nx=1, ny=1,
-    showGrid=True, printAll=True, printDir='plot', showPageNo=True)
+    showGrid=True, printAll=True, printDir='plot', showPageNo=True,
+    saveROOT=True)
   painter.PrintCover('CE65 Preliminary')
   plot_noise(painter,'B4')
   plot_noise(painter,'A4')
