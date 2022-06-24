@@ -4,6 +4,7 @@
 
 # Based on pyROOT
 import ROOT
+from ROOT import TMath
   # Colors
 from ROOT import kBlack, kRed, kBlue, kGreen, kViolet, kCyan, kOrange, kPink, kYellow, kMagenta, kGray, kWhite
   # Markers
@@ -147,12 +148,60 @@ def SelectLine(LINE_STYLE_INDEX = 0):
     LINE_STYLE_INDEX += 1
 LINE = SelectLine()
 
+# Fit
+def fcn_moyal(x : list, par : list):
+  """Moyal Distribution
+  Approximation for Landau distribution
+  Reference:
+
+  Parameter
+    par[0]=mean
+    par[1]=sigma
+  """
+  mean = par[0]
+  sigma = par[1]
+  t = (x[0] - mean) / sigma
+  invsq2pi = 0.3989422804014
+  expPseudo = -0.5 * (TMath.Exp(-t) + t)
+  return invsq2pi / sigma * (TMath.Exp( expPseudo ))
+  
+def fcn_langaus(x : list, par : list):
+  """Convoluted Landau and Gaussian Fitting Function
+
+  Reference: https://root.cern/doc/master/langaus_8C.html
+
+  Parameter
+    par[0]=Width (scale) parameter of Landau density
+    par[1]=Most Probable (MP, location) parameter of Landau density
+    par[2]=Total area (integral -inf to inf, normalization constant)
+    par[3]=Width (sigma) of convoluted Gaussian function
+  """
+  invsq2pi = 0.3989422804014  # (2 pi)^(-1/2)
+  mpshift  = -0.22278298   # Landau maximum location
+  np = 100.0 # number of convolution steps
+  sc =   5.0 # convolution extends to +-sc Gaussian sigmas
+  xx, mpc, fland, sum = 0., 0., 0., 0.
+  xlow, xupp, step = 0., 0., 0.
+  x[0] = x[0]
+  for i in range(4):
+    par[i] = par[i]
+  mpc = par[1] - mpshift * par[0]
+  xlow = x[0] - sc * par[3]
+  xupp = x[0] + sc * par[3]
+  step = (xupp-xlow) / np
+  # Convolution integral of Landau and Gaussian by sum
+  for i in range(1,int(np//2+1)):
+    xx = xlow + (i - .5) * step
+    fland = TMath.Landau(xx, mpc, par[0]) / par[0]
+    sum += fland * TMath.Gaus(x[0], xx, par[3])
+    xx = xupp - (i-.5) * step
+    fland = TMath.Landau(xx, mpc, par[0]) / par[0]
+    sum += fland * TMath.Gaus(x[0], xx, par[3])
+  return float(par[2] * step * sum * invsq2pi / par[3])
+
 # Painter
 def NewCanvas(name="c1_painter", title="New Canvas", winX=1600, winY=1000, **kwargs):
   return TCanvas(name, title, winX,winY)
-
-def SetArg(args, key, defaultValue):
-  return args[key] if args.get(key) else defaultValue
 
 class Painter:
   """Master of ROOT drawing and plotting
@@ -166,20 +215,20 @@ class Painter:
     self.canvas = canvas if canvas is not None else NewCanvas(**kwargs)
        # Output PDF in 1 file
     self.printer = printer if printer.endswith(".pdf") else printer +".pdf"
-    self.printAll = SetArg(kwargs, 'printAll', False)
-    self.printDir = SetArg(kwargs, 'printDir', os.path.dirname(self.printer))
+    self.printAll = kwargs.get('printAll', False)
+    self.printDir = kwargs.get('printDir', os.path.dirname(self.printer))
     if(self.printDir == ''): self.printDir = '.'
-    self.printExt = SetArg(kwargs, 'printExt', ['pdf','png'])
+    self.printExt = kwargs.get('printExt', ['pdf','png'])
     # Configuration
-    self.subPadNX = SetArg(kwargs, 'nx', 1)
-    self.subPadNY = SetArg(kwargs, 'ny', 1)
+    self.subPadNX = kwargs.get('nx', 1)
+    self.subPadNY = kwargs.get('ny', 1)
     0.14, 0.02, 0.12, 0.02
-    self.marginTop = SetArg(kwargs, 'marginTop', 0.02)
-    self.marginBottom = SetArg(kwargs, 'marginBottom', 0.12)
-    self.marginLeft = SetArg(kwargs, 'marginLeft', 0.14)
-    self.marginRight = SetArg(kwargs, 'marginRight', 0.02)
-    self.showGrid = SetArg(kwargs, 'showGrid', False)
-    self.gridColor = SetArg(kwargs, 'gridColor', kGray+1)
+    self.marginTop = kwargs.get('marginTop', 0.02)
+    self.marginBottom = kwargs.get('marginBottom', 0.12)
+    self.marginLeft = kwargs.get('marginLeft', 0.14)
+    self.marginRight = kwargs.get('marginRight', 0.02)
+    self.showGrid = kwargs.get('showGrid', False)
+    self.gridColor = kwargs.get('gridColor', kGray+1)
     ROOT.gStyle.SetGridColor(self.gridColor)
     # Parameters
     self.GAUS_FIT_RANGE = kwargs['gausFitRange'] if kwargs.get('gausFitRange') else 1 # ratio of FWHM
@@ -283,15 +332,16 @@ class Painter:
       self.NextPad()
   # Painter Objects
   def draw_band(self, xmin, xmax, color = kGray+1, style=3002, **kwargs):
-    """
+    """Draw a band 
+    Default: vertical gray band crossing the frame
     """
     grshade = self.new_obj(ROOT.TGraph(4))
     ROOT.gPad.Update()
-    ymin = SetArg(kwargs, 'ymin', ROOT.gPad.GetUymin())
-    ymax = SetArg(kwargs, 'ymax', ROOT.gPad.GetUymax())
+    ymin = kwargs.get('ymin', ROOT.gPad.GetUymin())
+    ymax = kwargs.get('ymax', ROOT.gPad.GetUymax())
     grshade.SetPoint(0, xmin, ymax)
-    grshade.SetPoint(2, xmax, ymin)
     grshade.SetPoint(1, xmax, ymax)
+    grshade.SetPoint(2, xmax, ymin)
     grshade.SetPoint(3, xmin, ymin)
     grshade.SetFillColor(color)
     grshade.SetFillStyle(style)
@@ -331,8 +381,8 @@ class Painter:
     valmax = binning[2]
     nbins = int( (valmax - valmin) // binwidth)
     return self.new_obj(ROOT.TH1F(name, title, nbins, valmin, valmax))
-  def draw_hist_text(self, hist):
-    """Plot bin contect as text for ROOT.TH2
+  def draw_hist_text(self, hist, **textAttr):
+    """Plot bin content as text for ROOT.TH2
     """
     xlower = ROOT.gPad.GetLeftMargin()
     xupper = 1 - ROOT.gPad.GetRightMargin()
@@ -340,11 +390,16 @@ class Painter:
     yupper = 1 - ROOT.gPad.GetTopMargin()
     wx = (xupper - xlower) / hist.GetNbinsX()
     wy = (yupper - ylower) / hist.GetNbinsY()
+    # Text attributes
+    textAttr['color'] = textAttr.get('color', kBlack)
+    textAttr['size'] = textAttr.get('size', 0.06)
+    textAttr['font'] = textAttr.get('font', 62)
+    textAttr['align'] = textAttr.get('color', 22)
     for iy in range(hist.GetNbinsY()):
       for ix in range(hist.GetNbinsX()):
         val = hist.GetBinContent(ix + 1, iy +1)
         pave = self.draw_text(ix * wx + xlower, iy * wy + ylower, (ix+1) * wx + xlower, (iy+1)*wx + xlower)
-        self.add_text(pave,f'{val:.3f}',size=0.06, font=62, align=22)
+        self.add_text(pave,f'{val:.3f}', textAttr)
         pave.Draw('same')
   # Calculation
   def normalise_profile_y(self, hist):
@@ -388,13 +443,21 @@ class Painter:
       [fwhm * 0.1, fwhm * 0., fwhm * 1],
     ]
     # Fitter
+    langaufun = None
     try:
-      _ = getattr(ROOT, 'langaufun')
+      langaufun = getattr(ROOT, 'langaufun')
     except AttributeError:
       script_path = os.path.dirname( os.path.realpath(__file__) )
-      ROOT.gInterpreter.ProcessLine(f'#include "{script_path}/langaus.C"')
+      macroPath = script_path + '/langaus.C'
+      if os.path.exists(macroPath):
+        # C macro, faster than python implementation
+        ROOT.gInterpreter.ProcessLine(f'#include "{macroPath}"')
+        langaufun = ROOT.langaufun
+      else:
+        # python internel implementation
+        langaufun = fcn_langaus
     fcnName = f'fitLangaus_{hist.GetName()}_{len(self.root_objs)}'
-    fcnfit = self.new_obj(ROOT.TF1(fcnName, ROOT.langaufun, fitRange[0], fitRange[1], N_PARS))
+    fcnfit = self.new_obj(ROOT.TF1(fcnName, langaufun, fitRange[0], fitRange[1], N_PARS))
     startvals = [par[0] for par in pars]
     parlimitslo = [par[1] for par in pars]
     parlimitshi = [par[2] for par in pars]
