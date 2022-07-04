@@ -136,15 +136,15 @@ def DrawClusteringAnalog(self, dirCluster, nextPage=True, suffix=''):
   hSize.GetXaxis().SetRangeUser(0,args.CHARGE_MAX)
   self.DrawHist(hSize, "clusterSize", optLogY=True)
 
-  hSize = dirCluster.Get("clusterNeighboursCharge")
+  hSize = dirCluster.Get("clusterNeighborsCharge")
   hSize.Rebin(int(args.CHARGE_BINWIDTH  / hSize.GetBinWidth(1)))
   hSize.GetXaxis().SetRangeUser(-0.05 * args.CHARGE_MAX, args.CHARGE_MAX)
   self.DrawHist(hSize, "clusterSize", optLogY=True)
 
-  hSize = dirCluster.Get("clusterNeighboursChargeSum")
+  hSize = dirCluster.Get("clusterNeighborsChargeSum")
   hSize.Rebin(int(args.CHARGE_BINWIDTH  / hSize.GetBinWidth(1)))
   hSize.GetXaxis().SetRangeUser(-0.05 * args.CHARGE_MAX,args.CHARGE_MAX)
-  self.DrawHist(hSize, "Cluster neighbours charge", optLogY=True)
+  self.DrawHist(hSize, "Cluster neighbors charge", optLogY=True)
 
   hSize = dirCluster.Get("clusterSeedSNR")
   hSize.Rebin(int(1 / hSize.GetBinWidth(1)))
@@ -152,43 +152,58 @@ def DrawClusteringAnalog(self, dirCluster, nextPage=True, suffix=''):
   hSize.GetYaxis().SetRangeUser(0,hSize.GetMaximum() * 1.2)
   self.DrawHist(hSize, "clusterSeedSNR")
 
-  hSize = dirCluster.Get("clusterNeighboursSNR")
+  hSize = dirCluster.Get("clusterNeighborsSNR")
   hSize.GetXaxis().SetRangeUser(-3,20)
-  self.DrawHist(hSize, "clusterNeighboursSNR", optLogY=False)
+  self.DrawHist(hSize, "clusterNeighborsSNR", optLogY=False)
 
-  hMap = dirCluster.Get("clusterSeed_Neighbours")
+  hMap = dirCluster.Get("clusterCharge_SeedvsNeighbors")
   hMap.GetXaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
   hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX,args.CHARGE_MAX)
-  self.DrawHist(hMap, "clusterSeed_Neighbours", "colz", False)
+  self.DrawHist(hMap, "clusterCharge_SeedvsNeighbors", "colz", False)
 
-  hMap = dirCluster.Get("clusterSeed_NeighboursSNR")
+  hMap = dirCluster.Get("clusterSNR_SeedvsNeighbors")
   hMap.GetYaxis().SetRangeUser(-1,10)
-  self.DrawHist(hMap, "clusterSeed_NeighboursSNR", "colz", False)
+  self.DrawHist(hMap, "clusterSNR_SeedvsNeighbors", "colz", False)
 
-  hMap = dirCluster.Get("clusterSeed_NeighboursSum")
+  hMap = dirCluster.Get("clusterCharge_SeedvsNeighborsSum")
   hMap.GetXaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
   hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
-  self.DrawHist(hMap, "clusterSeed_NeighboursSum", "colz", False)
+  self.DrawHist(hMap, "clusterCharge_SeedvsNeighborsSum", "colz", False)
 
-  hMap = dirCluster.Get("clusterSeed_Cluster")
+  hMap = dirCluster.Get("clusterCharge_SeedvsCluster")
   hMap.GetXaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
   hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX,args.CHARGE_MAX)
-  self.DrawHist(hMap, "clusterSeed_Cluster", "colz", False)
+  self.DrawHist(hMap, "clusterCharge_SeedvsCluster", "colz", False)
 
-  hMap = dirCluster.Get("clusterSeedSNR_Cluster")
+  hMap = dirCluster.Get("clusterSeedSNRvsClusterCharge")
   hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
-  self.DrawHist(hMap, "clusterSeedSNR_Cluster", "colz", False)
+  self.DrawHist(hMap, "clusterSeedSNRvsClusterCharge", "colz", False)
+  # Cluster shape
+  hSize = dirCluster.Get("clusterShape_SeedCut")
+  hSize.GetXaxis().SetRangeUser(0,10)
+  self.draw_text(0.58, 0.55, 0.85, 0.85, f'Average size: {hSize.GetMean()}')
+  self.DrawHist(hSize, "clusterShape_SeedCut")
 
-  hMap = dirCluster.Get("clusterChargeShape")
+  hMap = dirCluster.Get("clusterShape_Charge_LocalIndex")
   hMap.GetXaxis().SetRangeUser(-5,5)
   hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
-  self.DrawHist(hMap, "clusterChargeShape", "colz", False)
+  self.DrawHist(hMap, "clusterShape_Charge_LocalIndex", "colz", False)
 
-  hMap = dirCluster.Get("clusterChargeShapeSNR")
+  hMap = dirCluster.Get("clusterShape_Charge_SortedIndex")
+  hMap.GetXaxis().SetRangeUser(0,10)
+  hMap.GetYaxis().SetRangeUser(-0.1 * args.CHARGE_MAX, args.CHARGE_MAX)
+  self.DrawHist(hMap, "clusterShape_Charge_SortedIndex", "colz", optNormY=True)
+
+  hMap = dirCluster.Get("clusterShape_SNR_LocalIndex")
   hMap.GetXaxis().SetRangeUser(-5,5)
-  self.DrawHist(hMap, "clusterChargeShapeSNR", "colz", False)
+  self.DrawHist(hMap, "clusterShape_SNR_LocalIndex", "colz", False)
 
-  hMap = dirCluster.Get("clusterChargeShapeRatio")
+  hMap = dirCluster.Get("clusterShape_SNR_SortedIndex")
+  hMap.GetXaxis().SetRangeUser(0,10)
+  self.DrawHist(hMap, "clusterShape_SNR_SortedIndex", "colz", False, optNormY=True)
+
+  # Charge sharing (ratio distribution in local window)
+  hMap = dirCluster.Get("clusterShape_ChargeRatio_LocalIndex")
   hMap.GetXaxis().SetRangeUser(-5,5)
   hMap.GetYaxis().SetRangeUser(-0.05,1.2)
   hPx = hMap.ProfileX() # TODO: Re-normalized with counts in seed
@@ -196,10 +211,9 @@ def DrawClusteringAnalog(self, dirCluster, nextPage=True, suffix=''):
   hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
   hPx.SetMarkerColor(ROOT.kBlack)
   hPx.SetLineWidth(3)
-  self.DrawHist(hMap, "clusterChargeShapeRatio", "colz", optNormY=True)
+  self.DrawHist(hMap, "clusterShape_ChargeRatio_LocalIndex", "colz", optNormY=True)
   hPx.Draw("same")
-
-  # Charge sharing (ratio distribution)
+  # plot 2D map of charge fractions in pixel
   windowSize = 3.0
   hRatioMean = self.new_obj(ROOT.TH2D(
     f'hChargeSharingRatioMean{suffix}',
@@ -225,7 +239,7 @@ def DrawClusteringAnalog(self, dirCluster, nextPage=True, suffix=''):
   self.DrawHist(hRatioMPV, 'hChargeSharingRatioMPV', 'colz')
   self.draw_hist_text(hRatioMPV, color=ROOT.kWhite)
     # Cluster shape with highest N/Nth pixels
-  hRatio = dirCluster.Get("clusterChargeRatio")
+  hRatio = dirCluster.Get("clusterShape_ChargeRatio_Accumulated")
   hRatio.SetXTitle(f'R_{{n}} (#sum highest N pixels)')
   hRatio.SetYTitle('accumulated charge ratio')
   hRatio.GetXaxis().SetRangeUser(0,10)
@@ -238,8 +252,15 @@ def DrawClusteringAnalog(self, dirCluster, nextPage=True, suffix=''):
   self.DrawHist(hRatio, "Cluster charge ratio", "colz", False, optNormY=True)
   hPx.Draw("same")
 
-  hRatio = dirCluster.Get('clusterChargeHighestNpixels')
-  hRatio.SetTitle('accumulated charge - Highest N pixel ')
+  hRatio = dirCluster.Get("clusterShape_ChargeRatio_SortedIndex")
+  hRatio.SetXTitle(f'Pixel index (Nth highest charge)')
+  hRatio.SetYTitle('#it{q}_{n} charge ratio / #it{Q}_{cluster}')
+  hRatio.GetXaxis().SetRangeUser(0,10)
+  hRatio.GetYaxis().SetRangeUser(-0.5, 1.5)
+  self.DrawHist(hRatio, "Cluster charge ratio", "colz", False, optNormY=True)
+
+  hRatio = dirCluster.Get('clusterShape_Charge_Accumulated')
+  hRatio.SetTitle('accumulated charge - Highest N pixels ')
   hRatio.SetYTitle('accumulated charge')
   hRatio.SetXTitle(f'Q_{{n}} (#sum highest N pixels)')
   hRatio.GetXaxis().SetRangeUser(0,10)
@@ -249,7 +270,7 @@ def DrawClusteringAnalog(self, dirCluster, nextPage=True, suffix=''):
   hPx.SetLineStyle(ROOT.kDashDotted) # dash-dot
   hPx.SetMarkerColor(ROOT.kBlack)
   hPx.SetLineWidth(3)
-  self.DrawHist(hRatio, "Highest N pixel accumulated charge", "colz", False)
+  self.DrawHist(hRatio, "clusterShape_Charge_Accumulated", "colz")
   hPx.Draw("same")
   # Output
   if(nextPage): self.NextPage()
@@ -328,6 +349,7 @@ def DrawDUTAssociation(self, dirAna):
   self.pageName = f"DUTAssociation - {detector}"
   # Drawing
   htmp = dirAna.Get('hTrackDUT')
+  if not htmp: return
   htmp.GetYaxis().SetRangeUser(-500, 500)
   htmp.GetXaxis().SetRangeUser(-500, 500)
   self.DrawHist(htmp, option='colz')
@@ -383,15 +405,7 @@ def DrawAnalysisDUT(self, dirAna, nextPage=True):
   nTrackCutMask = int(hCut.GetBinContent(2))
   nTrackPass = int(hCut.GetBinContent(7))
   nAssociatedCluster = int(hCut.GetBinContent(8))
-    # Track hit at edge of sub-matrix
-  hMapIneff = dirAna.Get('hUnassociatedTracksLocalPosition')
-  nTrackEdge = 0
-  for edge in CE65_SUBMATRIX_EDGE[0:2]:
-    xlower = hMapIneff.GetXaxis().FindBin(edge-1.5)
-    xupper = hMapIneff.GetXaxis().FindBin(edge+.5)
-    py = hMapIneff.ProjectionY(f'_py_{xlower}_{xupper}', xlower, xupper)
-    nTrackEdge += int(py.GetEntries())
-  nTrackPass -= nTrackEdge
+  # Efficiency stats.
   eff, error, lerr, uerr = efficiency_simple(nAssociatedCluster, nTrackPass)
   pave = self.draw_text(0.15, 0.1, 0.7, 0.9)
   self.add_text(pave, f'Raw efficiency : {eff * 100:.1f}^{{+{uerr * 100:.1f}}}_{{-{lerr * 100:.1f}}} %', font=62, size=0.08)
@@ -400,7 +414,6 @@ def DrawAnalysisDUT(self, dirAna, nextPage=True):
   self.add_text(pave, f'- outside DUT : -{nTrackCutDUT}')
   self.add_text(pave, f'- outside ROI : -{nTrackCutROI}')
   self.add_text(pave, f'- close to mask : -{nTrackCutMask}')
-  self.add_text(pave, f'- close to edge of sub-matrix : -{nTrackEdge}')
   self.add_text(pave, f'Track pass selectoin : {nTrackPass}', font=62, size=0.05)
   self.add_text(pave, f'Associated clusters N_{{assoc. cls.}} : {nAssociatedCluster}', font=62, size=0.05)
   pave.Draw()
@@ -408,6 +421,7 @@ def DrawAnalysisDUT(self, dirAna, nextPage=True):
   hMap = dirAna.Get("clusterMapAssoc")
   self.DrawHist(hMap, "clusterSize", "colz")
     # In-eff map (unassociated tracks)
+  hMapIneff = dirAna.Get('hUnassociatedTracksLocalPosition')
   nbinx = int(1 // hMapIneff.GetXaxis().GetBinWidth(1))
   nbiny = int(1 // hMapIneff.GetYaxis().GetBinWidth(1))
   hMapIneff.Rebin2D( nbinx , nbiny) # Rebin to 1px
