@@ -2,7 +2,8 @@
 
 # Plot preliminary results for approval
 
-import enum
+import argparse
+import os
 import plot_util
 import ROOT
 from copy import deepcopy
@@ -21,19 +22,19 @@ database = {
     'AC':{
       'calibration': 4.167,
       'result':{
-        'file': 'output/analysisCE65-AC_cls500seed500snr3sum3x3_chi2ndf1_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-AC_iter1_PS-A4_HV10.root',
       },
     },
     'DC':{
       'calibration': 5.556,
       'result':{
-        'file': 'output/analysisCE65-DC_cls500seed500snr3sum3x3_chi2ndf1_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-DC_iter1_PS-A4_HV10.root',
       },
     },
     'SF':{
       'calibration': 1.493,
       'result':{
-        'file': 'output/analysisCE65-SF_cls150seed150snr3sum3x3_chi2ndf1_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-SF_iter1_PS-A4_HV10.root',
       },
     },
   },
@@ -71,7 +72,7 @@ database = {
         'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-AC_cls500seed500snr3sum3x3_chi2ndf1_PS-B4_HV10.root',
+        'file':'output/analysisCE65-AC_iter1_PS-B4_HV10.root',
       }
     },
     'DC':{
@@ -84,7 +85,7 @@ database = {
         'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-DC_cls500seed500snr3sum3x3_chi2ndf1_PS-B4_HV10.root',
+        'file':'output/analysisCE65-DC_iter1_PS-B4_HV10.root',
       }
     },
     'SF':{
@@ -97,7 +98,7 @@ database = {
         'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-SF_cls150seed150snr3sum3x3_chi2ndf1_PS-B4_HV10.root',
+        'file':'output/analysisCE65-SF_iter1_PS-B4_HV10.root',
       }
     },
   }
@@ -367,7 +368,7 @@ def plot_cluster_shape(painter : plot_util.Painter):
     dirAna = resultFile.Get('AnalysisCE65')
     dirAna = dirAna.Get('CE65_4')
     dirCluster = dirAna.Get('cluster')
-    hRatio = painter.new_obj(dirCluster.Get("clusterChargeRatio").Clone(f'hClusterChargeRatio_{chip}_{sub}'))
+    hRatio = painter.new_obj(dirCluster.Get("clusterShape_ChargeRatio_Accumulated").Clone(f'hClusterChargeRatio_{chip}_{sub}'))
     hRatio.UseCurrentStyle()
     hRatio.SetYTitle('#it{R}_{n} (accumulated charge ratio)')
     hRatio.SetXTitle('Number of selected pixels by decreasing charge')
@@ -477,12 +478,15 @@ def plot_tracking_residual(painter : plot_util.Painter, axis='X'):
   ptxt.Draw('same')
   painter.NextPage(f'TrackingResiduals{axis}_' + '_'.join(database['variant']))
 
-def plot_preliminary():
+def plot_preliminary(prefix='output/preliminary', all=False, **kwargs):
   plot_util.ALICEStyle()
+  outputDir = os.path.dirname(prefix)
+  if(all):
+    os.system(f'mkdir -p {outputDir}/plot')
   painter = plot_util.Painter(
-    printer='preliminary.pdf',
+    printer=f'{prefix}.pdf',
     winX=1600, winY=1000, nx=1, ny=1,
-    showGrid=True, printAll=True, printDir='plot', showPageNo=True,
+    showGrid=True, printAll=all, printDir=f'{outputDir}/plot', showPageNo=True,
     saveROOT=True)
   painter.PrintCover('CE65 Preliminary')
   plot_noise(painter,'B4')
@@ -497,5 +501,11 @@ def plot_preliminary():
   painter.PrintBackCover('-')
 
 if __name__ == '__main__':
-  plot_preliminary()
+  parser = argparse.ArgumentParser('Preliminary pltos for multiple variants and sub-matrix')
+  parser.add_argument('-p','--prefix',default='output/preliminary', help='Prefix of output fils, generate files .pdf .root and plot/')
+  parser.add_argument('-a','--all', default=False, action='store_true', help='Option to save all figures in .eps and .pdf individually')
+  args, unknown = parser.parse_known_args()
+  if unknown:
+    print(f'[+] Unknown aruments : {unknown}')
+  plot_preliminary(args.prefix, args.all)
   #pprint(database)
