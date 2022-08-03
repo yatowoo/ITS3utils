@@ -22,19 +22,19 @@ database = {
     'AC':{
       'calibration': 4.167,
       'result':{
-        'file': 'output/analysisCE65-AC_iter1_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-AC_iter1-seed_PS-A4_HV10.root',
       },
     },
     'DC':{
       'calibration': 5.556,
       'result':{
-        'file': 'output/analysisCE65-DC_iter1_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-DC_iter1-seed_PS-A4_HV10.root',
       },
     },
     'SF':{
       'calibration': 1.493,
       'result':{
-        'file': 'output/analysisCE65-SF_iter1_PS-A4_HV10.root',
+        'file': 'output/analysisCE65-SF_iter1-seed_PS-A4_HV10.root',
       },
     },
   },
@@ -72,7 +72,7 @@ database = {
         'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-AC_iter1_PS-B4_HV10.root',
+        'file':'output/analysisCE65-AC_iter1-seed_PS-B4_HV10.root',
       }
     },
     'DC':{
@@ -85,7 +85,7 @@ database = {
         'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-DC_iter1_PS-B4_HV10.root',
+        'file':'output/analysisCE65-DC_iter1-seed_PS-B4_HV10.root',
       }
     },
     'SF':{
@@ -98,7 +98,7 @@ database = {
         'seed_snr': 3,
         'seed_charge': 200,
         'cluster_charge': 1000,
-        'file':'output/analysisCE65-SF_iter1_PS-B4_HV10.root',
+        'file':'output/analysisCE65-SF_iter1-seed_PS-B4_HV10.root',
       }
     },
   }
