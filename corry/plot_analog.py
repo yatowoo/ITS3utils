@@ -25,6 +25,7 @@ elif not args.print.endswith('.pdf'):
   args.print = args.print + '.pdf'
 
 ALICEStyle()
+ROOT.gStyle.SetPadTopMargin(0.05)
 ROOT.gStyle.SetLineWidth(1)
 ROOT.gStyle.SetOptTitle(1)
 ROOT.gStyle.SetOptStat(0)
@@ -68,7 +69,8 @@ class CorryPainter(Painter):
 c = ROOT.TCanvas('cQA','Corry Performance Figures',2560, 1440)
 c.SetMargin(0.15, 0.1, 0.15, 0.1)
 c.Draw()
-paint = CorryPainter(c, args.print, nx=4, ny=3, gausFitRange=args.GAUS_FIT)
+paint = CorryPainter(c, args.print, nx=4, ny=3, gausFitRange=args.GAUS_FIT,
+  marginTop=0.08)
 paint.PrintCover()
 
 corryHist = ROOT.TFile(args.file)
